@@ -1,0 +1,30 @@
+# BlackHoleResearch — pinned dependencies
+# Tested with Python 3.11. Older Python may not resolve.
+#
+# Core scientific stack
+numpy>=1.26,<3
+scipy>=1.11
+matplotlib>=3.8
+
+# Astronomy: FITS I/O, WCS, units, coordinates, cosmology, stretches
+# astropy 7.x is current as of late 2025 / early 2026
+astropy>=6.1
+
+# Multi-archive querying (HEASARC, MAST, IRSA, etc.)
+# astroquery 0.4.7+ has the modern HEASARC interface
+astroquery>=0.4.7
+
+# Optional but useful for spectral resampling / regions
+# Pinned soft to avoid pulling huge transitive deps unnecessarily
+specutils>=1.15
+regions>=0.9
+
+# Time series / variability
+# Lomb-Scargle is in astropy.timeseries but stingray gives X-ray-specific tools
+# Comment in if you want X-ray timing; otherwise astropy covers v1 needs
+# stingray>=2.0
+
+# UI
+streamlit>=1.40
+plotly>=5.24
+pandas>=2.2

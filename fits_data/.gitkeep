@@ -1,0 +1,2 @@
+# Keeps the directory in git even when FITS files are gitignored.
+# Manifest of downloaded files lives at MANIFEST.json (also tracked).
