@@ -1,14 +1,14 @@
 # BlackHoleResearch
 
-> Multiwavelength FITS explorer for black hole astrophysics. Built for learning, designed to surface the actual physics behind the visuals.
+> Multiwavelength FITS explorer for black hole astrophysics, designed for teaching and research workflows.
 
-A Streamlit app that loads astronomical FITS files from multiple missions and wavebands, displays them with proper WCS overlays and stretches, and helps you build the multi-band Spectral Energy Distributions that turn a pile of pixel arrays into a black hole.
+A Streamlit application that loads astronomical FITS files from multiple missions and wavebands, displays them with proper WCS overlays and intensity stretches, and assembles multi-band Spectral Energy Distributions from pixel-level data.
 
 ---
 
 ## What this is
 
-Black holes don't emit light themselves — we see them by what gas falling in does on its way down. That gas radiates across the entire electromagnetic spectrum:
+Black holes do not emit light directly. They are detected through the radiation of accreting gas, which spans the entire electromagnetic spectrum:
 
 | Band | Emitting region |
 |---|---|
@@ -18,21 +18,21 @@ Black holes don't emit light themselves — we see them by what gas falling in d
 | X-ray | Hot corona, disk reflection, jet base |
 | Gamma-ray | Highest-energy jet particles |
 
-No single band tells you what you're looking at. This tool lets you load FITS files from multiple missions, view each properly, and assemble the **SED** that connects all of them.
+No single band is sufficient on its own. This tool loads FITS files from multiple missions, displays each correctly, and assembles the **SED** that integrates them.
 
 ### Phase 1 (this build): classical regimes
 
 - **NGC 1068** — archetypal Seyfert 2 / Compton-thick AGN
-- **M87** — low-luminosity SMBH with the famous jet (and the first directly imaged event horizon)
+- **M87** — low-luminosity supermassive black hole with an extended optical/radio jet, and the first directly imaged event horizon (EHT 2019)
 - **Cyg X-1** — first widely accepted stellar-mass black hole (Webster & Murdin 1972)
 
 ### Phase 2 (planned): Little Red Dots
 
-The JWST frontier — high-redshift sources that *should* be AGN but show weak/absent X-ray and IR emission, contradicting standard unification. References: Greene+2024, Maiolino+2024, Akins+2025, Pacucci & Narayan 2025.
+The JWST research frontier — high-redshift sources with strong broad emission lines (implying accreting black holes) that show weak or absent X-ray and infrared emission, in tension with the standard AGN unification picture. References: Greene et al. 2024, Maiolino et al. 2024, Akins et al. 2025, Pacucci & Narayan 2025.
 
-### Phase 3 (planned): real spectral fitting
+### Phase 3 (planned): calibrated spectral fitting
 
-Sherpa/PyXspec integration with proper RMF/ARF response files.
+Sherpa or PyXspec integration with RMF/ARF response files for production-grade fits.
 
 ---
 
@@ -82,7 +82,7 @@ BlackHoleResearch/
 │       ├── infrared.py          # WISE color cuts (Stern, Donley), blackbody
 │       └── variability.py       # F_var (Vaughan+2003)
 └── docs/
-    └── PITFALLS.md              # the catalog of FITS-handling traps
+    └── PITFALLS.md              # reference catalog of FITS handling issues
 ```
 
 ---
@@ -97,9 +97,9 @@ BlackHoleResearch/
 | M87 | DSS · 2MASS K · WISE W1 · VLA FIRST 1.4 GHz · ROSAT |
 | Cyg X-1 | DSS · 2MASS K · WISE W1 · ROSAT |
 
-Total download: about 50-200 MB depending on which surveys return data. The script is idempotent — re-runs skip existing files, and `MANIFEST.json` records each download with SHA-256 hash and provenance URL.
+Total download is approximately 50–200 MB depending on which surveys return data. The script is idempotent — repeated runs skip existing files — and `MANIFEST.json` records each download with a SHA-256 hash and the provenance URL.
 
-For higher-resolution Chandra/XMM/NuSTAR event files and OGIP spectra, see the **Adding more data** section below — those require direct HEASARC observation queries beyond the SkyView cutout interface.
+For higher-resolution Chandra, XMM-Newton, and NuSTAR event files and OGIP spectra, see the **Adding more data** section below. These require direct HEASARC observation queries beyond the SkyView cutout interface.
 
 ---
 
@@ -121,7 +121,7 @@ print(obs[["obsid", "exposure", "ra", "dec"]])
 h.download_data(obs[:1], host="heasarc", location="fits_data/")
 ```
 
-The result includes evt2 event files you can drop straight into the app's **X-ray Events** tab.
+The result includes `evt2` event files that load directly into the **X-ray Events** tab in the application.
 
 ### From MAST (HST, JWST, TESS)
 
@@ -153,25 +153,25 @@ All physics calculations have references back to original papers. See module doc
 
 ---
 
-## Pitfalls (the file you'll re-read at 2am)
+## Common pitfalls
 
-See [`docs/PITFALLS.md`](docs/PITFALLS.md) for the full catalog. Top 5:
+See [`docs/PITFALLS.md`](docs/PITFALLS.md) for the full catalog. Top five:
 
-1. **X-ray "data" is not images.** Chandra/XMM/NuSTAR event files are tables of individual photons. You have to bin them yourself.
-2. **Linear stretch ruins everything.** Astronomical dynamic range demands log, sqrt, or asinh stretches.
-3. **WCS is optional.** Old or cutout FITS files often lack WCS keywords; check before assuming RA/Dec.
-4. **PHA spectra need RMF/ARF.** Channel space is not energy space. Power-law indices fit in channel space are descriptive, not publication-quality.
-5. **Light-curve gaps are usually GTI artifacts.** Real spacecraft observations have orbit gaps; the EVENTS extension alone doesn't tell you when the instrument wasn't observing.
+1. **X-ray data is not an image.** Chandra/XMM/NuSTAR event files are tables of individual photons that must be binned into pixels before display.
+2. **Linear stretch obscures the data.** Astronomical images span 4–7 orders of magnitude; a log, sqrt, or asinh stretch is required for meaningful display.
+3. **WCS may be missing.** Old or cutout FITS files sometimes lack a complete World Coordinate System; verify `wcs.has_celestial` before assuming RA/Dec.
+4. **PHA spectra require response files.** Channel space is not energy space. Power-law indices fit in channel space are descriptive, not calibrated.
+5. **Light-curve gaps are typically GTI artifacts.** Real spacecraft observations have orbit gaps; the EVENTS extension alone does not record when the instrument was inactive.
 
 ---
 
 ## Why these targets
 
-| Target | Why it's in the dataset |
+| Target | Significance |
 |---|---|
-| **NGC 1068** | The polarized broad-line discovery (Antonucci & Miller 1985) here is what founded AGN unification. Compton-thick obscuration makes it the textbook case for why you need IR to find some AGN. |
-| **M87** | First directly imaged event horizon (EHT 2019). Has a 1500-light-year optical/radio jet visible since Curtis 1918. Low-luminosity AGN — different from quasars but same fundamental engine. |
-| **Cyg X-1** | First widely accepted stellar-mass black hole (Webster & Murdin 1972, Bolton 1972). Bright, variable, every X-ray mission since 1964 has looked at it. |
+| **NGC 1068** | The polarized broad-line discovery (Antonucci & Miller 1985) at this source established AGN unification. Its Compton-thick obscuration makes it a canonical case for the necessity of infrared diagnostics in identifying obscured AGN. |
+| **M87** | First directly imaged event horizon (EHT Collaboration 2019). Hosts a ~1500-light-year optical/radio jet observed since Curtis 1918. A low-luminosity AGN, distinct from quasars but driven by the same fundamental accretion mechanism. |
+| **Cyg X-1** | First widely accepted stellar-mass black hole (Webster & Murdin 1972; Bolton 1972). Bright, variable, and observed by every major X-ray mission since 1964. |
 
 ---
 
@@ -181,7 +181,7 @@ MIT. NASA data is public domain.
 
 ## References
 
-Primary references are inline in module docstrings. The big ones:
+Primary references are inline in module docstrings. Key sources:
 
 - FITS Standard v4.0 — IAU FITS Working Group, 2018
 - Antonucci 1993, ARA&A 31, 473 — AGN unification

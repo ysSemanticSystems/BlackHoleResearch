@@ -1,161 +1,275 @@
-# FITS Pitfalls — the file you'll re-read at 2am
+# FITS Pitfalls Reference
 
-Every trap that bites people working with astronomical FITS data, in roughly the order they bite. The first three are responsible for ~80% of "why is my plot broken" debugging.
+A catalog of common failure modes when working with astronomical FITS data,
+ordered roughly by how often they cause debugging time. Items 1–4 account
+for the large majority of "why does my plot look wrong" issues.
 
 ---
 
-## 1. X-ray "data" is not an image
+## 1. X-ray data is not an image
 
-Chandra, XMM-Newton, NuSTAR, NICER all produce **event lists**: a `BinTableHDU` where each row is one detected photon with columns `TIME`, `X`, `Y`, `ENERGY` (or `PI`), and various flags.
+Chandra, XMM-Newton, NuSTAR, and NICER all produce **event lists**: a
+`BinTableHDU` where each row is one detected photon with columns `TIME`,
+`X`, `Y`, `ENERGY` (or `PI`), and various status flags.
 
-**Wrong:**
+Calling `imshow` directly on this kind of HDU either errors or produces
+meaningless output:
+
 ```python
 hdul = fits.open("chandra_obs.fits")
-plt.imshow(hdul[1].data)   # raises or shows garbage — that's a Table, not an Image
+plt.imshow(hdul[1].data)   # raises or returns garbage — that HDU is a Table, not an Image
 ```
 
-**Right:**
+To display an event list, bin the photon list into a 2D histogram first:
+
 ```python
 events = bhio.load_events("chandra_obs.fits")
 image, extent = bhio.bin_to_image(events, bins=512, energy_range_ev=(500, 7000))
 plt.imshow(image, extent=extent, origin="lower")
 ```
 
-This module handles it for you, but you'll meet raw FITS often enough that knowing the convention matters.
+The `blackhole.io` module handles this conversion. Most modern X-ray data
+products arrive as event lists, so the distinction is worth internalizing.
 
 ---
 
-## 2. Linear stretch turns astronomy into a black square
+## 2. Linear stretch destroys astronomical dynamic range
 
-Astronomical images have 4-7 orders of magnitude dynamic range. A bright AGN core can be a million times brighter per pixel than its host galaxy halo. Linearly mapping that to 256 display levels collapses everything to either pure white or pure black.
+Astronomical images routinely span 4–7 orders of magnitude in pixel
+intensity. A bright AGN core can be a million times brighter per pixel
+than its host galaxy halo. Mapping that range linearly onto 256 display
+levels collapses essentially all of it to either saturated white or pure
+black.
 
-**Fix:** use a nonlinear stretch via `astropy.visualization`:
+The fix is a nonlinear stretch from `astropy.visualization`:
 
 | Stretch | When to use |
 |---|---|
-| `LinearStretch` | When the data is already log (e.g. you took log10 yourself) |
-| `LogStretch` | Faint structure, galaxy halos |
-| `SqrtStretch` | Middle ground, Hubble press-release default |
-| `AsinhStretch(a=0.1)` | Modern default; well-behaved near zero, log-like at large values |
-| `ZScaleInterval + LinearStretch` | The DS9 default; usually works |
+| `LinearStretch` | When the data is already log-scaled (e.g. you took `log10` upstream) |
+| `LogStretch` | Faint extended structure such as galaxy halos |
+| `SqrtStretch` | General-purpose middle ground; common in HST press images |
+| `AsinhStretch(a=0.1)` | Modern default; behaves linearly near zero, log-like at large values |
+| `ZScaleInterval` + `LinearStretch` | The SAOImage DS9 default; reliable for quick inspection |
 
-This module defaults to `asinh` because it's the most forgiving across data types.
+This module defaults to `asinh` because it handles both faint background
+and bright cores without manual tuning.
 
 ---
 
 ## 3. WCS is silently missing or partial
 
-Old plate-scan FITS files, small mission cutouts, and reduced data products sometimes lack World Coordinate System keywords. The header might have `CTYPE1='LINEAR'` or no `CTYPE` at all. `WCS(header)` returns a valid object regardless — but it'll be a meaningless identity mapping.
+Old plate-scan FITS files, small mission cutouts, and reduced data
+products sometimes lack a complete World Coordinate System. The header
+might have `CTYPE1='LINEAR'`, or no `CTYPE` keywords at all. Crucially,
+`WCS(header)` returns a valid object regardless — it will just be a
+meaningless identity mapping when the keywords are absent.
 
-**Defense:** check `wcs.naxis >= 2` and verify the projection looks sensible. If unsure, fall back to pixel coordinates and label the plot honestly.
-
----
-
-## 4. Origin convention
-
-FITS pixel `(1,1)` is the **bottom-left** corner (Fortran convention). numpy arrays are indexed from `(0,0)` at the **top-left**. matplotlib `imshow` defaults to numpy convention.
-
-**Always pass `origin='lower'`** to `imshow` when displaying FITS images. Forgetting flips north-south.
+**Defense:** check that `wcs.has_celestial` is `True` and that
+`wcs.naxis >= 2` before relying on RA/Dec. When in doubt, fall back to
+pixel coordinates and label the axes honestly.
 
 ---
 
-## 5. Unit confusion across bands
+## 4. Image orientation: always pass `origin='lower'` to `imshow`
+
+The FITS standard places pixel (1, 1) at the bottom-left of the image
+on the sky. When astropy reads a FITS image into a NumPy array, the
+array element `[0, 0]` corresponds to that bottom-left pixel. NumPy
+arrays themselves have no inherent vertical orientation, but
+`matplotlib.imshow` defaults to `origin='upper'`, which draws array
+row 0 at the **top** of the figure.
+
+The combination flips north–south unless you explicitly pass
+`origin='lower'`:
+
+```python
+ax.imshow(data, origin='lower')   # correct: north is up
+```
+
+Forgetting this is the most common cause of "my source is on the wrong
+side of the field" reports.
+
+---
+
+## 5. Unit confusion across wavebands
+
+Different bands use different conventional flux units, and mixing them
+in a single plot or calculation is a frequent source of orders-of-magnitude
+errors.
 
 | Band | Conventional flux unit |
 |---|---|
 | Radio / sub-mm | Jy (Jansky) = 10⁻²³ erg/s/cm²/Hz |
-| IR / optical | Jy, mJy, or magnitudes (logarithmic, inverted) |
+| IR / optical | Jy, mJy, or magnitudes (logarithmic, inverted scale) |
 | UV | Jy or erg/s/cm²/Å |
 | X-ray | erg/s/cm²/keV or count rate |
 | Gamma-ray | photons/cm²/s/MeV |
 
-**Defense:** use `astropy.units` consistently. Convert to a common form (`νF_ν` in erg/s/cm²) before plotting across bands. The `sed.py` module enforces this.
-
-### 5a. WISE colors are Vega, not AB
-
-WISE catalogs report W1-W4 photometry in **Vega magnitudes**. AB conversions (Wright et al. 2010):
-- W1: AB - Vega = 2.699
-- W2: AB - Vega = 3.339
-- W3: AB - Vega = 5.174
-- W4: AB - Vega = 6.620
-
-The Stern and Donley AGN cuts are defined in Vega — don't apply them to AB-magnitude photometry without converting first.
+**Defense:** use `astropy.units` consistently throughout. Convert to a
+common form — typically νFν in erg/s/cm² — before plotting or comparing
+across bands. The `sed.py` module enforces this through `astropy.units`
+quantities at the point of ingestion.
 
 ---
 
-## 6. PHA spectra need response files
+## 6. WISE colors are reported in Vega, not AB
 
-A PHA (Pulse Height Amplitude) spectrum file has columns `CHANNEL` and `COUNTS`. The channel is a detector readout bin, not an energy. To get true energies you need:
+WISE catalogs report W1–W4 photometry in **Vega magnitudes**. The
+Vega-to-AB offsets (Wright et al. 2010; WISE All-Sky Explanatory
+Supplement, Section IV.4.h) are:
 
-- **RMF** (Response Matrix File): channel → energy distribution (one channel maps to multiple energies with different probabilities due to detector response)
-- **ARF** (Auxiliary Response File): effective area vs energy (telescope+detector throughput)
+- W1 (3.4 μm): AB − Vega = 2.699
+- W2 (4.6 μm): AB − Vega = 3.339
+- W3 (12 μm):  AB − Vega = 5.174
+- W4 (22 μm):  AB − Vega = 6.620
 
-Real spectral fitting (XSPEC, Sherpa) forward-folds a model through RMF and ARF. Plotting raw channels vs counts and calling that "the spectrum" is descriptive only.
-
-**The power-law fits in this app are deliberately descriptive.** A Γ of 1.9 fit from channels is not the same as a Γ of 1.9 fit through an RMF — they differ by mission and instrument. Use those values for visualization context only.
+The Stern et al. (2012) and Donley et al. (2012) AGN color cuts are
+defined in the Vega system. Applying them to AB-system photometry
+without converting first will give incorrect classifications.
 
 ---
 
-## 7. Big-endian byte order
+## 7. PHA spectra require response files for true energy axes
 
-FITS data is big-endian regardless of host machine. astropy handles this transparently on access, but if you save a numpy array to disk in mixed-architecture code paths you can get silent corruption.
+A PHA (Pulse Height Amplitude) spectrum file contains columns `CHANNEL`
+and `COUNTS`. The channel index is a detector readout bin, not a
+physical energy. Recovering true energies requires:
 
-**Defense:** stay in the astropy API. If you must do raw numpy on FITS arrays:
+- **RMF** (Response Matrix File): the probabilistic mapping from channel
+  to incident photon energy. One channel maps to a distribution of
+  energies because of finite detector resolution.
+- **ARF** (Auxiliary Response File): the effective area of the
+  telescope + detector combination as a function of energy.
+
+Production spectral fitting tools (XSPEC, Sherpa) forward-fold a
+candidate model through the RMF and ARF and compare against observed
+counts. Plotting raw channel against count rate and calling the result
+"the spectrum" is a useful descriptive view, but it is not equivalent
+to a calibrated spectrum.
+
+**This app's power-law fits are intentionally descriptive.** A photon
+index Γ of 1.9 fit in channel space is not the same as a Γ of 1.9 fit
+through the proper response — the two will differ by mission and by
+instrument. Use the values in this app for visualization and rough
+classification, not for publication.
+
+---
+
+## 8. Big-endian byte order
+
+FITS data is big-endian regardless of host architecture. Astropy handles
+this transparently on access, so in normal usage there is nothing to do.
+The issue surfaces only if you bypass the astropy API and pass the raw
+data array through code that assumes native byte order (some older
+C extensions, certain numpy operations on memory views).
+
+**Defense:** stay within the astropy API for FITS data. If you must
+operate on the raw array:
+
 ```python
 arr = hdul[1].data.byteswap().newbyteorder()
 ```
 
 ---
 
-## 8. Memory map invalidation
+## 9. Memory-map invalidation after the file is closed
 
-`fits.open()` memory-maps data by default. When you exit the `with` block, the file closes and the memmap is invalid. Code that accesses `.data` outside the block can segfault or return garbage.
+`fits.open()` memory-maps array data by default. When you exit a `with`
+block, the file closes and the memory map becomes invalid. Code that
+holds a reference to `.data` outside the open block can segfault or
+return corrupted values.
 
-**Defense:** always `.copy()` the array if you'll use it outside the open block:
+**Defense:** copy the array if it must outlive the open context:
+
 ```python
 with fits.open(path) as hdul:
     data = hdul[0].data.copy()
-# `data` is safe here
+# `data` is safe to use here
 ```
 
-This module does this for you in `load_image()` and `load_events()`.
+This module performs the copy in `load_image()` and `load_events()`.
 
 ---
 
-## 9. Light-curve gaps are GTI artifacts, not source variability
+## 10. Light-curve gaps are usually GTI artifacts, not source variability
 
-Spacecraft observations have orbit nights, Earth occultations, instrument resets, SAA passages. The Good Time Interval (GTI) extension tells you when the instrument was actually accumulating data. Binning event arrival times without applying the GTI mask gives you spurious zero-rate bins in the gaps.
+Spacecraft observations are interrupted by orbit nights, Earth
+occultations, instrument resets, South Atlantic Anomaly passages, and
+similar non-source effects. The Good Time Interval (GTI) extension
+records exactly when the instrument was accumulating valid data.
+Binning event arrival times without applying the GTI produces
+zero-count bins during the gaps, which look identical to real source
+extinction.
 
-**This app's `bin_events_to_lightcurve` does not apply GTI** — for v1 simplicity. If you see "the source dropped to zero counts for 4000 seconds," that's almost certainly a GTI gap, not real source dimming. Phase 3 will integrate the GTI.
-
----
-
-## 10. Coordinate frame mismatches
-
-`SkyCoord("12h34m56s -01d23m45s", frame="icrs")` is not the same coordinate as the same string in `frame="fk5"` (drift since the equinox), and definitely not the same as Galactic l/b. Cross-matching catalogs without checking frames produces silent ~1 arcsec errors.
-
-**Defense:** be explicit about frames; convert via `SkyCoord.transform_to(...)`.
-
----
-
-## 11. Energy filters on PI-channel data
-
-Some missions store energies in eV (Chandra) and others in PI channels (XMM, NuSTAR — where the conversion to eV is mission- and grade-dependent). Applying an `energy_range_ev=(500, 7000)` filter to PI-channel data silently filters on channel numbers 500-7000, which is *not* the same energy range.
-
-**Defense:** check `events.energy_unit` before filtering. The `bin_to_image` function only applies eV filters when `energy_unit == "eV"`.
+**This app's `bin_events_to_lightcurve` does not currently apply GTI
+filtering.** If a light curve appears to drop to zero counts for
+thousands of seconds, the most likely explanation is a GTI gap rather
+than source dimming. GTI integration is planned for Phase 3.
 
 ---
 
-## 12. Naive vs astropy time
+## 11. Coordinate frame mismatches
 
-X-ray missions store times as seconds since a mission-specific epoch (Chandra: 1998-01-01 TT; XMM: 1998-01-01 TT; NuSTAR: 2010-01-01 UTC). To compare across missions, convert via `astropy.time.Time` with the correct format and scale. Naive subtraction gives wrong absolute times.
+`SkyCoord("12h34m56s -01d23m45s", frame="icrs")` is not the same point
+on the sky as the same string parsed as FK5 (different equinox handling),
+and neither is the same as Galactic l, b. Cross-matching catalogs across
+frames without explicit conversion produces silent positional errors at
+the arcsecond level.
+
+**Defense:** always specify the frame explicitly when constructing
+`SkyCoord`. Convert between frames with `SkyCoord.transform_to(...)`
+rather than re-parsing strings.
 
 ---
 
-## 13. The MJD obsession
+## 12. Energy filters on PI-channel data
 
-Many old catalogs report observation epochs as Modified Julian Date. MJD = JD - 2400000.5. The 2400000.5 offset is a convention — half-day offsets exist (MJD starts at midnight UTC, JD at noon). Use `Time(mjd_value, format='mjd', scale='utc')`, don't roll your own.
+Some missions store photon energies directly in eV (Chandra `energy`
+column). Others store them as PI channel numbers (XMM-Newton, NuSTAR),
+where the channel-to-energy conversion depends on the mission and
+sometimes on event grade. Applying an `energy_range_ev=(500, 7000)`
+filter to a PI-channel column silently filters on channel numbers
+500–7000, which is not the same as the 0.5–7 keV energy band.
+
+**Defense:** check the energy unit before filtering. The `bin_to_image`
+function in this module applies eV filters only when
+`events.energy_unit == "eV"`.
 
 ---
 
-If you hit something not in this list, add it. The list is the documentation.
+## 13. Time systems across missions
+
+X-ray missions store photon arrival times as seconds since a
+mission-specific reference epoch:
+
+- **Chandra:** 1998-01-01 00:00:00 TT (Terrestrial Time)
+- **XMM-Newton:** 1998-01-01 00:00:00 TT
+- **NuSTAR:** 2010-01-01 00:00:00 UTC
+
+To compare timestamps across missions, convert through `astropy.time.Time`
+with the correct format and scale (`'tt'` versus `'utc'`). Naive
+subtraction of raw mission-time values will give wrong absolute times,
+including a 37-second offset between TT and UTC.
+
+---
+
+## 14. Modified Julian Date conventions
+
+Many catalogs report observation epochs as Modified Julian Date:
+MJD = JD − 2,400,000.5. The half-day offset matters: MJD starts at
+midnight UTC, while JD starts at noon. Use astropy rather than
+implementing the conversion by hand:
+
+```python
+from astropy.time import Time
+t = Time(mjd_value, format='mjd', scale='utc')
+```
+
+---
+
+## Adding to this list
+
+This document is intended to grow as the project encounters new failure
+modes. New entries should follow the existing structure: a short
+description of the symptom, the underlying cause, a concrete defense or
+code pattern, and a citation where relevant.

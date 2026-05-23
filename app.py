@@ -4,10 +4,9 @@ app.py — Streamlit UI for BlackHoleResearch.
 Launch:
     streamlit run app.py
 
-The app is organized as a sidebar (target/file selection, controls) plus
-a main pane with tabs for each visualization type. Every tab leads with a
-short prose explanation of what you're looking at and why it matters,
-because the visuals only mean something if the viewer knows the physics.
+Layout: compact top banner with a metric row, then tabs for each
+visualization. Background information is collected in collapsible
+expanders so the visual content remains the focus.
 """
 
 from __future__ import annotations
@@ -32,21 +31,23 @@ st.set_page_config(
     page_title="BlackHoleResearch — Multiwavelength FITS Explorer",
     page_icon="🕳️",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
-# Inject a tiny bit of CSS for dark-mode aesthetics
 st.markdown(
     """
     <style>
-    .block-container { padding-top: 2rem; }
+    .block-container { padding-top: 1rem; padding-bottom: 1rem; }
     h1 { background: linear-gradient(90deg, #00d4ff, #ff006e);
          -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-         background-clip: text; }
+         background-clip: text;
+         margin-bottom: 0.25rem; }
+    h1 + p { margin-top: 0; }
     .metric-card {
         background-color: #1a1d29; border: 1px solid #303446;
         border-radius: 8px; padding: 12px; margin-bottom: 10px;
     }
+    section[data-testid="stSidebar"] { width: 280px !important; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -54,57 +55,47 @@ st.markdown(
 
 
 # ---------------------------------------------------------------------------
-# Project framing — top of page
+# Compact header
 # ---------------------------------------------------------------------------
 
-st.title("🕳️  BlackHoleResearch")
-st.markdown(
-    """
-    **A multiwavelength FITS explorer for black hole astrophysics.**
-
-    Black holes don't emit light themselves — we see them by what the gas falling
-    in does on its way down. That gas radiates across the entire electromagnetic
-    spectrum, and *every band tells a different story*:
-
-    - **Radio / sub-mm** → relativistic jets, synchrotron from non-thermal electrons
-    - **Infrared** → the dusty torus surrounding the central engine
-    - **Optical / UV** → the accretion disk (Shakura-Sunyaev thermal emission)
-    - **X-ray** → the hot corona, reflection off the disk, jet base
-    - **Gamma-ray** → highest-energy particles in the jet, inverse Compton
-
-    No single band tells you what you're looking at. This tool lets you load FITS
-    files from multiple missions across multiple wavebands and build the
-    **Spectral Energy Distribution (SED)** — the diagnostic that connects all of it.
-
-    Current dataset covers three regimes: a textbook obscured AGN
-    (**NGC 1068**), a low-luminosity supermassive BH with a famous jet (**M87**),
-    and a stellar-mass BH X-ray binary (**Cyg X-1**). Phase 2 adds **Little Red
-    Dots** — the JWST-discovered population that breaks the standard AGN
-    unification picture by being IR- and X-ray-weak despite hosting accreting
-    black holes (active 2024-2026 frontier).
-    """
+st.title("BlackHoleResearch")
+st.caption(
+    "Multiwavelength FITS explorer for black hole astrophysics — "
+    "NGC 1068, M87, Cyg X-1 across radio, IR, optical, and X-ray."
 )
 
-with st.expander("📚  How FITS files work (read this before you start)", expanded=False):
+with st.expander("Background — what this tool does and why", expanded=False):
     st.markdown(
         """
-        **FITS** (Flexible Image Transport System) is NASA's standard astronomical
-        data format, formalized in 1981 and still the universal standard 45 years
-        later. A FITS file is *not* a single image — it's a list of **HDUs**
-        (Header/Data Units), each with:
+        Black holes are detected through the radiation of accreting gas,
+        which spans the electromagnetic spectrum. Each waveband traces a
+        different physical region:
 
-        1. A **header** — ASCII metadata cards (keyword/value pairs)
-        2. A **data block** — either a 2D/3D array (Image HDU) or a structured
-           table (BinTable HDU)
+        - **Radio / sub-mm** — relativistic jets, synchrotron emission
+        - **Infrared** — dusty torus around the central engine
+        - **Optical / UV** — accretion disk (Shakura–Sunyaev thermal)
+        - **X-ray** — hot corona, disk reflection, jet base
+        - **Gamma-ray** — high-energy jet particles, inverse Compton
 
-        **The biggest gotcha:** X-ray "data" from Chandra, XMM-Newton, NuSTAR
-        is *not a 2D image*. It's an **event list** — a table where each row
-        is a single detected photon (time, sky position, energy). To see a
-        picture you have to bin the events into pixels yourself. This tool
-        handles that automatically when you load an X-ray event file.
+        This tool loads FITS data from multiple missions, displays each
+        with appropriate stretches and WCS overlays, and assembles the
+        **Spectral Energy Distribution** that ties the bands together.
 
-        Use the **Inspect** tab on any file to see its HDU structure before
-        plotting.
+        The current dataset covers three regimes: a Compton-thick
+        obscured AGN (**NGC 1068**), a low-luminosity supermassive
+        black hole with an extended jet (**M87**), and a stellar-mass
+        black hole X-ray binary (**Cyg X-1**). Phase 2 will add
+        **Little Red Dots** — the JWST-discovered population that
+        appears infrared- and X-ray-weak despite hosting accreting
+        black holes, in tension with the AGN unification model.
+
+        **FITS format note:** A FITS file is a list of HDUs
+        (Header/Data Units), each containing ASCII metadata and either
+        an image array or a structured table. X-ray data from Chandra,
+        XMM-Newton, and NuSTAR arrives as **event lists** (one row per
+        detected photon) rather than 2D images. The Inspect tab shows
+        the HDU structure for any loaded file; binning event lists into
+        images is handled automatically.
         """
     )
 
@@ -124,13 +115,13 @@ def list_fits_files() -> list[Path]:
 
 
 with st.sidebar:
-    st.header("🎛️  Controls")
+    st.header("Controls")
 
     files = list_fits_files()
     if not files:
         st.error(
             "No FITS files in `fits_data/`.\n\n"
-            "Run from the project root:\n"
+            "From the project root:\n"
             "```bash\npython scripts/download_data.py\n```"
         )
         st.stop()
@@ -149,36 +140,27 @@ with st.sidebar:
         "Stretch",
         ["asinh", "log", "sqrt", "linear", "zscale"],
         index=0,
-        help=(
-            "Astronomical images have 6+ orders of magnitude dynamic range. "
-            "A nonlinear stretch is the difference between a black square and "
-            "a beautiful galaxy image. asinh is the modern default; zscale is "
-            "the SAOImage DS9 default."
-        ),
+        help="Nonlinear stretch for high-dynamic-range data. "
+             "asinh is the modern default; zscale matches SAOImage DS9.",
     )
     cmap = st.selectbox(
         "Colormap",
         ["inferno", "viridis", "magma", "plasma", "gray", "cubehelix", "twilight"],
         index=0,
-        help="Perceptually uniform colormaps. 'inferno' is the default — avoids "
-             "the perceptual artifacts of the deprecated 'jet'."
+        help="Perceptually uniform colormaps.",
     )
 
     st.divider()
-    st.subheader("Dataset info")
     if MANIFEST_PATH.exists():
         manifest = json.loads(MANIFEST_PATH.read_text())
         st.caption(
-            f"**{manifest.get('n_files', 0)}** files · "
-            f"**{manifest.get('total_size_mb', 0)} MB** total"
+            f"Dataset: **{manifest.get('n_files', 0)}** files · "
+            f"**{manifest.get('total_size_mb', 0)} MB**"
         )
         st.caption(f"Generated: `{manifest.get('generated_at', 'unknown')[:19]}`")
-    else:
-        st.caption("No manifest. Run download script to generate.")
 
-    st.divider()
     st.caption(
-        "Data: [NASA SkyView](https://skyview.gsfc.nasa.gov/) · "
+        "Sources: [NASA SkyView](https://skyview.gsfc.nasa.gov/) · "
         "[HEASARC](https://heasarc.gsfc.nasa.gov/) · "
         "[MAST](https://mast.stsci.edu/)"
     )
@@ -209,23 +191,22 @@ col_d.metric("File size",
 # ---------------------------------------------------------------------------
 
 tab_inspect, tab_image, tab_xray, tab_spectrum, tab_sed, tab_lightcurve, tab_about = st.tabs([
-    "🔬  Inspect",
-    "🖼️  Image",
-    "✨  X-ray Events",
-    "📈  Spectrum",
-    "🌈  SED Builder",
-    "⏱️  Light Curve",
-    "ℹ️  About",
+    "Inspect",
+    "Image",
+    "X-ray Events",
+    "Spectrum",
+    "SED Builder",
+    "Light Curve",
+    "About",
 ])
 
 # --------------------------- Inspect tab ----------------------------------
 with tab_inspect:
     st.subheader("HDU structure")
-    st.markdown(
-        "Every FITS file starts here. Each row below is one HDU. **Image** HDUs "
-        "hold 2D arrays; **BinTable** HDUs hold structured rows (X-ray event "
-        "lists, spectra, light curves). Note the shape column — for tables, "
-        "that's row count; for images, pixel dimensions."
+    st.caption(
+        "Each row is one HDU. Image HDUs hold 2D arrays; BinTable HDUs hold "
+        "structured rows (event lists, spectra, light curves). The Shape column "
+        "shows row counts for tables and pixel dimensions for images."
     )
     import pandas as pd
     df = pd.DataFrame([
@@ -260,9 +241,9 @@ with tab_inspect:
 # --------------------------- Image tab ----------------------------------
 with tab_image:
     st.subheader("Sky image with WCS")
-    st.markdown(
+    st.caption(
         "Renders 2D Image HDUs with the World Coordinate System overlaid. "
-        "Tick labels become RA/Dec in J2000 sexagesimal when WCS is present."
+        "Axis labels become RA/Dec in J2000 sexagesimal when WCS is present."
     )
 
     # Find first 2D image HDU
@@ -306,12 +287,11 @@ with tab_image:
 # --------------------------- X-ray Events tab ----------------------------------
 with tab_xray:
     st.subheader("X-ray event list → binned image")
-    st.markdown(
-        "If this file is an event list from Chandra/XMM/NuSTAR, this tab bins "
-        "the photon list into a 2D image. The slider lets you filter on photon "
-        "energy — hard band (>2 keV) versus soft band (<2 keV) often look "
-        "totally different because hard X-rays penetrate obscuration while "
-        "soft ones get absorbed."
+    st.caption(
+        "Bins photon event lists (Chandra / XMM-Newton / NuSTAR) into a 2D image. "
+        "The energy filter separates hard (>2 keV) from soft (<2 keV) bands, which "
+        "often look very different — hard X-rays penetrate obscuration that absorbs "
+        "soft X-rays."
     )
 
     # Detect if this file has an EVENTS extension
@@ -353,17 +333,19 @@ with tab_xray:
 # --------------------------- Spectrum tab ----------------------------------
 with tab_spectrum:
     st.subheader("1D X-ray spectrum")
-    st.markdown(
-        "Plots an OGIP-format PHA spectrum file and optionally fits a power "
-        "law N(E) ∝ E^(-Γ). The photon index Γ is the simplest diagnostic of "
-        "the X-ray continuum shape:\n\n"
-        "- **Γ ≈ 1.7-2.1** → typical type-1 (unobscured) AGN\n"
-        "- **Γ < 1.7** → hard, reflection-dominated or obscured\n"
-        "- **Γ > 2.5** → very soft, sometimes super-Eddington or TDE\n\n"
-        "**Limitation**: Without a response file (RMF/ARF) we fit in channel "
-        "space — the resulting Γ is *descriptive, not publication-quality*. "
-        "Real spectral fitting requires XSPEC or Sherpa."
+    st.caption(
+        "Plots an OGIP PHA spectrum and optionally fits a power law "
+        "N(E) ∝ E^(−Γ). Without RMF/ARF response files the fit is in "
+        "channel space — descriptive only, not calibrated."
     )
+    with st.expander("Photon-index interpretation"):
+        st.markdown(
+            "- **Γ ≈ 1.7–2.1** → typical Type 1 (unobscured) AGN\n"
+            "- **Γ < 1.7** → hard, reflection-dominated or obscured\n"
+            "- **Γ > 2.5** → very soft; sometimes super-Eddington or tidal disruption event\n\n"
+            "Production-grade fits require XSPEC or Sherpa with the appropriate "
+            "response files."
+        )
 
     has_spectrum = any(h.name.upper() == "SPECTRUM" for h in hdus)
 
@@ -398,17 +380,20 @@ with tab_spectrum:
 # --------------------------- SED tab ----------------------------------
 with tab_sed:
     st.subheader("Multi-band SED builder")
-    st.markdown(
-        "The headline plot. Builds a Spectral Energy Distribution across "
-        "wavebands, with band-coded markers. Use this to see the radio jet "
-        "synchrotron component, the IR dust torus bump, the optical/UV disk "
-        "thermal emission, and the X-ray corona power law all on one plot.\n\n"
-        "Pick a target below — the app pre-fills WISE / 2MASS / DSS / RASS "
-        "broad-band photometry from the cutouts you've downloaded. **For real "
-        "photometry you'd extract aperture fluxes** — the values here are "
-        "*illustrative* and pulled from external catalog values referenced "
-        "in the table below."
+    st.caption(
+        "Assembles a Spectral Energy Distribution across wavebands, with "
+        "markers color-coded by band. Resolves the radio jet synchrotron "
+        "component, the IR dust torus, the optical/UV disk thermal emission, "
+        "and the X-ray corona power law on a single plot."
     )
+    with st.expander("Note on photometry source"):
+        st.markdown(
+            "Values are illustrative literature photometry, drawn from "
+            "published catalog measurements (NED, AllWISE, 2MASS XSC, and "
+            "the references shown in the data table). Aperture photometry "
+            "extracted directly from the local FITS cutouts is planned for "
+            "Phase 2."
+        )
 
     target_choice = st.selectbox(
         "Target", ["NGC 1068", "M87", "Cyg X-1"], index=0,
@@ -500,19 +485,19 @@ with tab_sed:
             })
         st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
         st.caption(
-            "These are *illustrative* literature values for the SED shape, "
-            "not extracted from the local FITS cutouts. Aperture photometry "
-            "from FITS cutouts is a Phase 2 build."
+            "Values are literature photometry from the sources noted, not "
+            "extracted from the local FITS cutouts. Aperture photometry from "
+            "the cutouts is planned for Phase 2."
         )
 
 # --------------------------- Light Curve tab ----------------------------------
 with tab_lightcurve:
-    st.subheader("X-ray light curve & Lomb-Scargle periodogram")
-    st.markdown(
-        "Bins X-ray event arrival times into a uniform time-step light curve, "
-        "then computes a Lomb-Scargle periodogram looking for variability "
-        "timescales. Useful for QPO searches and characterizing source state. "
-        "Requires an event list (same input as the X-ray Events tab)."
+    st.subheader("X-ray light curve and Lomb-Scargle periodogram")
+    st.caption(
+        "Bins photon arrival times into a uniform time-step light curve and "
+        "computes a Lomb-Scargle periodogram for variability timescales. "
+        "Useful for QPO searches and source-state characterization. Requires "
+        "an event list (same input as the X-ray Events tab)."
     )
 
     has_events = any(h.name.upper() == "EVENTS" for h in hdus)
@@ -550,51 +535,52 @@ with tab_about:
     st.subheader("About this project")
     st.markdown(
         """
-### Phase 1 — Classical multiwavelength BH viewer (this build)
-Three regimes: NGC 1068 (obscured Seyfert 2), M87 (LLAGN with jet), Cyg X-1
-(stellar-mass BH binary). All standard plots: image with WCS, X-ray events,
-spectrum, SED, light curve.
+### Phase 1 — Classical multiwavelength viewer (current build)
+Three source regimes: NGC 1068 (obscured Seyfert 2), M87 (low-luminosity
+AGN with jet), Cyg X-1 (stellar-mass black hole binary). Standard plots:
+image with WCS, X-ray events, spectrum, SED, light curve.
 
 ### Phase 2 — Little Red Dots module
-The JWST frontier. Adds:
-- LRD targets from JADES/CEERS/COSMOS-Web (Greene+2024, Maiolino+2024)
-- L_X/L_UV comparison against Lusso & Risaliti 2016 — the relation LRDs
-  systematically violate
+The JWST research frontier. Adds:
+- LRD targets from JADES, CEERS, and COSMOS-Web (Greene et al. 2024, Maiolino et al. 2024)
+- L_X / L_UV comparison against the Lusso & Risaliti 2016 relation that LRDs systematically violate
 - NIRSpec spectral diagnostics (Balmer break detection, line ratio fits)
-- IR-faintness diagnostic (Stern/Donley wedge with LRDs marked as outliers)
+- IR-faintness diagnostic (Stern and Donley wedges with LRDs marked as outliers)
 
-### Phase 3 — Real spectral fitting
-Sherpa or PyXspec integration. RMF/ARF handling. Multi-component models
-(power law + reflection + thermal disk).
+### Phase 3 — Calibrated spectral fitting
+Sherpa or PyXspec integration with RMF/ARF handling and multi-component
+models (power law + reflection + thermal disk).
 
 ### Data sources
-| Mission / survey | Era | What we use |
+| Mission / survey | Era | Use in this project |
 |---|---|---|
-| ROSAT All-Sky Survey | 1990-1991 | Broad-band X-ray cutouts via SkyView |
-| 2MASS | 1997-2001 | Near-IR J/H/K cutouts |
-| DSS | 1950s-1990s plates | Optical context images |
-| WISE/AllWISE | 2010-2011 | Mid-IR (3.4 / 4.6 / 12 / 22 µm) |
-| Chandra | 1999-present | X-ray events, spectra (via HEASARC) |
-| NuSTAR | 2012-present | Hard X-ray (3-79 keV) |
-| JWST | 2021-present | Phase 2 — LRD photometry, NIRSpec |
+| ROSAT All-Sky Survey | 1990–1991 | Broad-band X-ray cutouts via SkyView |
+| 2MASS | 1997–2001 | Near-IR J/H/K cutouts |
+| DSS | 1950s–1990s plates | Optical context images |
+| WISE / AllWISE | 2010–2011 | Mid-IR (3.4 / 4.6 / 12 / 22 µm) |
+| Chandra | 1999–present | X-ray events and spectra (via HEASARC) |
+| NuSTAR | 2012–present | Hard X-ray (3–79 keV) |
+| JWST | 2021–present | Phase 2 LRD photometry and NIRSpec |
 
-### Standards we use
+### Standards
 - **FITS Standard v4.0** (IAU FITS Working Group, 2018)
 - **OGIP/92-007** for X-ray spectra
-- **VOTable / WCS** for coordinates
+- **VOTable** and **WCS** for coordinates
 - **astropy** 6.1+ for all I/O
 
-### Pitfalls documented in source
+### Pitfalls referenced in source
 1. Event-file-as-image confusion → `io.py`
 2. WCS missing or partial → `wcs_plot.py`
-3. Linear stretch on log-dynamic-range data → `wcs_plot.py`
-4. Unit confusion (Jy / mag / keV / Hz) → `sed.py`
-5. PHA spectrum needs RMF/ARF for true energy axis → `spectra.py`
-6. Big-endian byteswap, memmap invalidation → `io.py`
-7. Light-curve gaps from GTI not applied → `lightcurves.py`
-8. WISE colors in Vega vs AB → `physics/infrared.py`
+3. Linear stretch on high-dynamic-range data → `wcs_plot.py`
+4. Unit confusion across bands (Jy / mag / keV / Hz) → `sed.py`
+5. PHA spectrum requires RMF/ARF for a true energy axis → `spectra.py`
+6. Big-endian byteswap and memmap invalidation → `io.py`
+7. Light-curve gaps from unapplied GTI → `lightcurves.py`
+8. WISE colors in Vega versus AB → `physics/infrared.py`
 
-### Source code
+Full catalog in `docs/PITFALLS.md`.
+
+### Source
 [github.com/ysSemanticSystems/BlackHoleResearch](https://github.com/ysSemanticSystems/BlackHoleResearch)
         """
     )
