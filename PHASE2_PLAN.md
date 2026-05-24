@@ -349,47 +349,68 @@ with confidence. Nothing else lands until this does.
 
 ---
 
-### M1 — Source catalog
+### M1 — Source catalog ✅ landed
 
 **Goal.** A single typed catalog of every studied source, with physical
 parameters that the rest of the codebase reads instead of re-deriving.
 
-**Scope.**
-- Implement `blackhole/catalog.py` per §2.1.
-- Seed entries for NGC 1068, M87, Cyg X-1 with peer-reviewed values:
+**Scope (delivered).**
+- `blackhole/catalog.py` per §2.1 with the frozen `Source` dataclass,
+  `SourceType` literal, and an immutable `CATALOG` tuple.
+- Seed entries with peer-reviewed values pinned by `tests/test_catalog.py`:
 
   | Field | NGC 1068 | M87 | Cyg X-1 |
   |---|---|---|---|
-  | M_BH (M☉) | (1.66 ± 0.04)×10⁷ | (6.5 ± 0.7)×10⁹ | 21.2 ± 2.2 |
-  | M_BH ref | Lodato+2003 (maser) | EHT Coll. 2019 Paper VI | Miller-Jones+2021 |
-  | z / d | z=0.00379; d=14.4 Mpc | d=16.8 Mpc (Bird+2010) | d=2.22 kpc |
+  | M_BH (M☉) | (8.0 ± 0.3)×10⁶ | (6.5 ± 0.7)×10⁹ | 21.2 ± 2.2 |
+  | M_BH ref | Lodato & Bertin 2003 A&A 408 1015 (maser w/ self-gravity) | EHT Coll. 2019 ApJL 875 L6 | Miller-Jones+2021 Science 371 1046 |
+  | Distance | 14.4 Mpc (Tully+2013) | 16.8 Mpc (Bird+2010) | 2.22 kpc (Miller-Jones+2021) |
+  | z | 0.003793 | 0.00428 | — (Galactic) |
   | Type | seyfert2 | llagn | xrb_hmxb |
+  | Notes | Compton-thick; older Greenhill+1996 value 1.7e7 noted | EHT shadow vs gas/stellar discrepancy noted | upward mass revision via new parallax |
 
-- Helper functions: `by_short_id`, `resolve_simbad`, `eddington_luminosity_of`,
-  `distance_to`, `redshift_of`.
-- UI metadata banner reads from the catalog: shows M_BH, d, type, L_Edd at
-  the top of every selected target's view.
+- Helper functions delivered: `by_short_id`, `by_name`, `by_filename`,
+  `eddington_luminosity_of`, `distance_to`, `redshift_of`, `_resolve`.
+  (`resolve_simbad` deferred to a later milestone — needs `astroquery`
+  network behaviour and tests against a mocked SIMBAD response.)
+- UI: catalog-driven metric strip below the file metric strip showing
+  Source / Type / M_BH / Distance / L_Edd plus a per-source References
+  expander. Active source resolution and the SED tab's target list now
+  flow from the catalog (no more local `TARGET_FILENAME_KEYS` or
+  hardcoded `["NGC 1068", "M87", "Cyg X-1"]`).
 
 **Exit criteria.**
-- [ ] `tests/test_catalog.py` checks every numerical field against its
-      reference paper value (≤1% drift) for all three Phase-1 targets.
-- [ ] `eddington_luminosity_of("ngc1068")` matches a hand-computed
-      L_Edd ≈ 2.1×10⁴⁵ erg/s.
-- [ ] `app.py` imports `from blackhole.catalog import ...`; selecting a file
-      whose filename prefix matches a `short_id` displays its catalog entry
-      in the banner.
-- [ ] No magic numbers (M_BH, distance, redshift) remain in `app.py` or
+- [x] `tests/test_catalog.py` (42 tests) pins every numerical field to
+      its reference paper. Includes per-source mass / distance /
+      redshift / coord / type / alias / filename-resolution / immutability
+      checks.
+- [x] `eddington_luminosity_of("ngc1068")` matches `1.008×10⁴⁵ erg/s`
+      from L_Edd = 1.26e38 × (8.0e6) (Frank+2002 Eq. 1.5).
+- [x] `app.py` imports from `blackhole.catalog`; selecting a file whose
+      filename matches a `short_id` (or alias) displays the catalog entry
+      in the science banner.
+- [x] No magic numbers (M_BH, distance, redshift) in `app.py` or
       `blackhole/sed.py`.
 
 **Files created.** `blackhole/catalog.py`, `tests/test_catalog.py`.
-**Files modified.** `app.py` (banner section).
+**Files modified.** `app.py` (banner + SED target list + filename resolver).
 
-**Risks.** Some published M_BH values disagree by factors of 2–10
-(NGC 1068's pre-2003 estimates). Pin to a single primary source per entry
-and document the disagreement in `notes`.
+**Deferred from M1 (tracked).**
+- `resolve_simbad(query)` — wraps astroquery.simbad with mocked tests.
+  Moved to a small follow-up after M2 because we don't need it for any
+  current code path and adding it now requires designing the test fake.
+- The earlier-promised mass for NGC 1068 (1.66e7 M_sun, Greenhill+1996)
+  is documented in `notes` as the alternative interpretation; the
+  catalog's primary value uses Lodato & Bertin 2003 (8.0e6) because that
+  paper's self-gravity correction is now standard.
 
-**References.** SIMBAD; NED; Lodato & Bertin 2003; EHT Collaboration 2019,
-ApJL 875, L6; Miller-Jones+2021, Science 371, 1046.
+**Risks (handled).** Published M_BH values for NGC 1068 disagree by
+factor ~2. Pinned to Lodato+2003 with the alternative cited in
+`notes`; test asserts that exact value, so any future swap forces an
+intentional update.
+
+**References.** SIMBAD; NED; Lodato & Bertin 2003 A&A 408 1015; EHT
+Collaboration 2019 ApJL 875 L6; Miller-Jones+2021 Science 371 1046;
+Tully+2013 AJ 146 86; Bird+2010 A&A 524 A71; Frank, King & Raine 2002.
 
 ---
 

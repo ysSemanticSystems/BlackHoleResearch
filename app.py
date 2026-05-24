@@ -20,9 +20,11 @@ import io as _stdio
 import json
 from pathlib import Path
 
+import astropy.units as u
 import matplotlib.pyplot as plt
 import streamlit as st
 
+from blackhole import catalog as cat
 from blackhole import io as bhio
 from blackhole import lightcurves as lc
 from blackhole import sed as sedmod
@@ -131,60 +133,30 @@ with st.sidebar:
 
 
 # ---------------------------------------------------------------------------
-# In-page selector + metric strip
+# Helpers (defined before the page flow that calls them)
 # ---------------------------------------------------------------------------
+
+_TYPE_PRETTY: dict[str, str] = {
+    "seyfert1":  "Seyfert 1 (unobscured)",
+    "seyfert2":  "Seyfert 2 (obscured)",
+    "llagn":     "Low-lum. AGN",
+    "xrb_hmxb":  "HMXB",
+    "xrb_lmxb":  "LMXB",
+    "lrd":       "Little Red Dot",
+    "quasar":    "Quasar",
+    "blazar":    "Blazar",
+    "tde":       "Tidal disruption",
+}
+
+
+def detect_source_from_filename(name: str) -> cat.Source | None:
+    """Resolve the active FITS filename to a catalog Source, or None."""
+    return cat.by_filename(name)
+
 
 @st.cache_data(show_spinner=False)
 def cached_inspect(path_str: str):
     return bhio.inspect(path_str)
-
-
-# Streamlit ordering note: selectbox state can be read directly via the
-# default-return value, so this single widget drives the whole page.
-sel_col, m1, m2, m3, m4 = st.columns([2.4, 1, 1, 1, 1])
-selected_name = sel_col.selectbox(
-    "FITS file",
-    file_names,
-    index=0,
-    help="Files in fits_data/. The Overview tab below shows thumbnails for all of them.",
-    label_visibility="visible",
-)
-selected_path = DATA_DIR / selected_name
-hdus = cached_inspect(str(selected_path))
-primary = hdus[0]
-
-m1.metric("Telescope",  primary.telescope or "—")
-m2.metric("Instrument", primary.instrument or "—")
-m3.metric("HDUs",       len(hdus))
-m4.metric("File size",  f"{selected_path.stat().st_size / 1e6:.1f} MB")
-
-st.divider()
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-TARGET_FILENAME_KEYS: dict[str, tuple[str, ...]] = {
-    "NGC 1068": ("ngc1068", "ngc_1068", "n1068", "ngc-1068"),
-    "M87":      ("m87",     "m_87",     "m-87",   "ngc4486"),
-    "Cyg X-1":  ("cygx1",   "cyg_x1",   "cyg-x1", "cygx-1", "cygx_1"),
-}
-
-
-def detect_target_from_filename(name: str) -> str | None:
-    """Map a FITS filename onto one of our canonical target names.
-
-    Pattern matching only — never network or header inspection here, since
-    this runs on every Streamlit rerun and needs to be free of side effects.
-    Returns the canonical target name (key into SEDS) or None.
-    """
-    lowered = name.lower().replace(" ", "")
-    for target, keys in TARGET_FILENAME_KEYS.items():
-        for k in keys:
-            if k in lowered:
-                return target
-    return None
 
 
 @st.cache_data(show_spinner=False)
@@ -230,6 +202,78 @@ def thumbnail_png(path_str: str, stretch: str = "asinh", cmap: str = "inferno") 
     finally:
         if fig is not None:
             plt.close(fig)
+
+
+# ---------------------------------------------------------------------------
+# In-page selector + metric strip
+# ---------------------------------------------------------------------------
+
+
+# Streamlit ordering note: selectbox state can be read directly via the
+# default-return value, so this single widget drives the whole page.
+sel_col, m1, m2, m3, m4 = st.columns([2.4, 1, 1, 1, 1])
+selected_name = sel_col.selectbox(
+    "FITS file",
+    file_names,
+    index=0,
+    help="Files in fits_data/. The Overview tab below shows thumbnails for all of them.",
+    label_visibility="visible",
+)
+selected_path = DATA_DIR / selected_name
+hdus = cached_inspect(str(selected_path))
+primary = hdus[0]
+
+m1.metric("Telescope",  primary.telescope or "—")
+m2.metric("Instrument", primary.instrument or "—")
+m3.metric("HDUs",       len(hdus))
+m4.metric("File size",  f"{selected_path.stat().st_size / 1e6:.1f} MB")
+
+# Catalog-driven science banner. Renders only when the filename resolves
+# to a catalogued source; otherwise we stay quiet so files outside the
+# Phase-1 target set don't get bogus physics annotations.
+active_source = detect_source_from_filename(selected_name)
+if active_source is not None:
+    L_edd = cat.eddington_luminosity_of(active_source).value
+    d_quant = cat.distance_to(active_source)
+    distance_str = (
+        f"{d_quant.to(u.kpc).value:.2f} kpc"
+        if d_quant.value < 0.1
+        else f"{d_quant.value:.1f} Mpc"
+    )
+
+    if active_source.m_bh_msun is not None:
+        if active_source.m_bh_msun >= 1e6:
+            m_bh_str = f"{active_source.m_bh_msun / 1e6:.2f}×10⁶ M☉"
+        else:
+            m_bh_str = f"{active_source.m_bh_msun:.1f} M☉"
+        if active_source.m_bh_msun >= 1e9:
+            m_bh_str = f"{active_source.m_bh_msun / 1e9:.2f}×10⁹ M☉"
+        if active_source.m_bh_err_msun:
+            m_bh_str += f" ± {active_source.m_bh_err_msun:.2g}"
+    else:
+        m_bh_str = "—"
+
+    src_cols = st.columns([1.4, 1, 1, 1, 1])
+    src_cols[0].metric("Source", active_source.name)
+    src_cols[1].metric("Type", _TYPE_PRETTY.get(active_source.type, active_source.type))
+    src_cols[2].metric("M_BH", m_bh_str)
+    src_cols[3].metric("Distance", distance_str)
+    src_cols[4].metric("L_Edd (erg/s)", f"{L_edd:.2e}")
+
+    with st.expander(f"References for {active_source.name}"):
+        z_line = (
+            f"- **Redshift**: z = {active_source.redshift:.5f}"
+            if active_source.redshift is not None
+            else "- **Redshift**: — (Galactic source)"
+        )
+        st.markdown(
+            f"- **M_BH ref**: {active_source.m_bh_ref}\n"
+            f"- **Distance ref**: {active_source.distance_ref}\n"
+            f"{z_line}\n"
+            f"- **Notes**: {active_source.notes or '—'}\n"
+        )
+
+st.divider()
 
 
 # ---------------------------------------------------------------------------
@@ -527,17 +571,21 @@ with tab_sed:
             "Phase 2."
         )
 
-    TARGETS = ["NGC 1068", "M87", "Cyg X-1"]
-    auto_target = detect_target_from_filename(selected_name)
-    default_idx = TARGETS.index(auto_target) if auto_target in TARGETS else 0
+    target_names = [s.name for s in cat.CATALOG]
+    auto_source = detect_source_from_filename(selected_name)
+    default_idx = (
+        target_names.index(auto_source.name)
+        if auto_source is not None and auto_source.name in target_names
+        else 0
+    )
     target_choice = st.selectbox(
         "Target",
-        TARGETS,
+        target_names,
         index=default_idx,
         help=(
-            f"Auto-detected from filename → **{auto_target}**. Switch manually if needed."
-            if auto_target
-            else "Filename doesn't match a known target. Choose manually."
+            f"Auto-detected from filename → **{auto_source.name}**. Switch manually if needed."
+            if auto_source is not None
+            else "Filename doesn't match a catalogued target. Choose manually."
         ),
     )
 

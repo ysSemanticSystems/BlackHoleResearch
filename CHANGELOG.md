@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — M1 source catalog
+- `blackhole/catalog.py` — frozen `Source` dataclass + immutable
+  `CATALOG` tuple for NGC 1068, M87, Cyg X-1. Every numeric field
+  carries a primary-source reference string.
+- Helpers: `by_short_id`, `by_name`, `by_filename`,
+  `eddington_luminosity_of`, `distance_to`, `redshift_of`.
+- `tests/test_catalog.py` — 42 tests pinning each value to its
+  citation: NGC 1068 M_BH to Lodato & Bertin 2003, M87 to EHT 2019
+  Paper VI, Cyg X-1 to Miller-Jones+2021. Eddington luminosities
+  hand-checked against Frank+2002 Eq. 1.5.
+- **app.py** — catalog-driven science banner under the file metric
+  strip (Source / Type / M_BH / Distance / L_Edd) plus a per-source
+  References expander. SED tab's target list and the filename-to-target
+  resolver now flow from `blackhole.catalog` (removed the local
+  `TARGET_FILENAME_KEYS` dict and the hardcoded `["NGC 1068", ...]`
+  array).
+
 ### Changed — UX: Overview tab and per-tab display controls
 - Added an **Overview** tab as the new landing surface: a 3-column
   thumbnail grid that renders every file in `fits_data/` (image HDUs
