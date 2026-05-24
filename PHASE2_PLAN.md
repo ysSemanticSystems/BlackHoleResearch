@@ -249,6 +249,28 @@ Each milestone uses the same template. Treat exit criteria as binary; treat
 
 ---
 
+### UX iteration 1 (between M0 and M1) — Overview tab, in-page selector, per-tab controls
+
+**Status.** Landed on `main` (branch: `ux-overview-and-controls`).
+
+**Scope.**
+- New **Overview** tab — thumbnail grid of every FITS in `fits_data/`,
+  rendered through the same `wcs_plot` / `bin_to_image` paths the rest
+  of the UI uses; cached on (path, stretch, cmap).
+- File picker moved from the sidebar into a top-of-page selector
+  alongside the metric strip.
+- Stretch + cmap moved from the sidebar into per-tab **Display options**
+  expanders on the Image and X-ray Events tabs.
+- SED tab auto-detects the target from the active filename
+  (`ngc1068`, `m87`, `cygx1` patterns); manual override remains.
+- Sidebar trimmed to orientation content only.
+
+**Deferred to M1 (catalog-driven UX).**
+- Target-aware "science banner" above the fold (Eddington luminosity at
+  the catalog mass, expected radio/IR/X-ray loudness ratios, classification
+  call-outs). Cannot ship cleanly until M1 makes `BHSource` a real
+  object with mass, distance, classification.
+
 ### M0 — Regression net & repo hardening
 
 **Goal.** Build the safety net that lets every subsequent milestone be merged

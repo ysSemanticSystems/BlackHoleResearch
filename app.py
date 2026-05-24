@@ -4,16 +4,23 @@ app.py — Streamlit UI for BlackHoleResearch.
 Launch:
     streamlit run app.py
 
-Layout: compact top banner with a metric row, then tabs for each
-visualization. Background information is collected in collapsible
-expanders so the visual content remains the focus.
+Layout: compact top banner with a file selector and metric row, then tabs.
+The Overview tab is the landing surface (thumbnail grid of available files).
+Display-side controls (stretch, colormap) live inside the relevant tabs so
+they sit next to the figures they configure.
+
+The "science banner" deep-dive is deferred to Phase 2 M1 (source-catalog
+work), at which point we can drive it from the active target rather than
+a static expander block. Tracked in PHASE2_PLAN.md M1.
 """
 
 from __future__ import annotations
 
+import io as _stdio
 import json
 from pathlib import Path
 
+import matplotlib.pyplot as plt
 import streamlit as st
 
 from blackhole import io as bhio
@@ -60,46 +67,9 @@ st.caption(
     "NGC 1068, M87, Cyg X-1 across radio, IR, optical, and X-ray."
 )
 
-with st.expander("Background — what this tool does and why", expanded=False):
-    st.markdown(
-        """
-        Black holes are detected through the radiation of accreting gas,
-        which spans the electromagnetic spectrum. Each waveband traces a
-        different physical region:
-
-        - **Radio / sub-mm** — relativistic jets, synchrotron emission
-        - **Infrared** — dusty torus around the central engine
-        - **Optical / UV** — accretion disk (Shakura–Sunyaev thermal)
-        - **X-ray** — hot corona, disk reflection, jet base
-        - **Gamma-ray** — high-energy jet particles, inverse Compton
-
-        This tool loads FITS data from multiple missions, displays each
-        with appropriate stretches and WCS overlays, and assembles the
-        **Spectral Energy Distribution** that ties the bands together.
-
-        The current dataset covers three regimes: a Compton-thick
-        obscured AGN (**NGC 1068**), a low-luminosity supermassive
-        black hole with an extended jet (**M87**), and a stellar-mass
-        black hole X-ray binary (**Cyg X-1**). Phase 2 will add
-        **Little Red Dots** — the JWST-discovered population that
-        appears infrared- and X-ray-weak despite hosting accreting
-        black holes, in tension with the AGN unification model.
-
-        **FITS format note:** A FITS file is a list of HDUs
-        (Header/Data Units), each containing ASCII metadata and either
-        an image array or a structured table. X-ray data from Chandra,
-        XMM-Newton, and NuSTAR arrives as **event lists** (one row per
-        detected photon) rather than 2D images. The Inspect tab shows
-        the HDU structure for any loaded file; binning event lists into
-        images is handled automatically.
-        """
-    )
-
-st.divider()
-
 
 # ---------------------------------------------------------------------------
-# Sidebar — file selection and global controls
+# File discovery
 # ---------------------------------------------------------------------------
 
 DATA_DIR = Path(__file__).resolve().parent / "fits_data"
@@ -110,60 +80,58 @@ def list_fits_files() -> list[Path]:
     return sorted(DATA_DIR.glob("*.fits"))
 
 
+files = list_fits_files()
+if not files:
+    st.error(
+        "No FITS files in `fits_data/`.\n\n"
+        "From the project root:\n"
+        "```bash\npython scripts/download_data.py\n```"
+    )
+    st.stop()
+
+file_names = [f.name for f in files]
+
+
+# Sidebar now carries only orientation material — file selection moved
+# in-page so it stays adjacent to the figure it drives.
 with st.sidebar:
-    st.header("Controls")
+    st.header("About this dataset")
 
-    files = list_fits_files()
-    if not files:
-        st.error(
-            "No FITS files in `fits_data/`.\n\n"
-            "From the project root:\n"
-            "```bash\npython scripts/download_data.py\n```"
-        )
-        st.stop()
-
-    file_names = [f.name for f in files]
-    selected_name = st.selectbox(
-        "FITS file",
-        file_names,
-        help="Files in the fits_data/ directory.",
-    )
-    selected_path = DATA_DIR / selected_name
-
-    st.divider()
-    st.subheader("Image rendering")
-    stretch = st.selectbox(
-        "Stretch",
-        ["asinh", "log", "sqrt", "linear", "zscale"],
-        index=0,
-        help="Nonlinear stretch for high-dynamic-range data. "
-             "asinh is the modern default; zscale matches SAOImage DS9.",
-    )
-    cmap = st.selectbox(
-        "Colormap",
-        ["inferno", "viridis", "magma", "plasma", "gray", "cubehelix", "twilight"],
-        index=0,
-        help="Perceptually uniform colormaps.",
-    )
-
-    st.divider()
     if MANIFEST_PATH.exists():
         manifest = json.loads(MANIFEST_PATH.read_text())
         st.caption(
-            f"Dataset: **{manifest.get('n_files', 0)}** files · "
+            f"**{manifest.get('n_files', 0)}** files · "
             f"**{manifest.get('total_size_mb', 0)} MB**"
         )
         st.caption(f"Generated: `{manifest.get('generated_at', 'unknown')[:19]}`")
 
-    st.caption(
-        "Sources: [NASA SkyView](https://skyview.gsfc.nasa.gov/) · "
-        "[HEASARC](https://heasarc.gsfc.nasa.gov/) · "
-        "[MAST](https://mast.stsci.edu/)"
+    st.markdown(
+        "**Targets in this build**\n"
+        "- **NGC 1068** — Compton-thick obscured Seyfert 2\n"
+        "- **M87** — low-luminosity AGN with jet\n"
+        "- **Cyg X-1** — stellar-mass X-ray binary\n\n"
+        "Phase 2 will add **JWST Little Red Dots**.\n"
+    )
+
+    st.markdown("---")
+    st.markdown(
+        "**Data sources**\n"
+        "- [NASA SkyView](https://skyview.gsfc.nasa.gov/)\n"
+        "- [HEASARC](https://heasarc.gsfc.nasa.gov/)\n"
+        "- [MAST](https://mast.stsci.edu/)\n"
+    )
+
+    st.markdown("---")
+    st.markdown(
+        "**Project**\n"
+        "- [Repository](https://github.com/ysSemanticSystems/BlackHoleResearch)\n"
+        "- [Phase 2 plan](https://github.com/ysSemanticSystems/BlackHoleResearch/blob/main/PHASE2_PLAN.md)\n"
+        "- [Pitfalls catalog](https://github.com/ysSemanticSystems/BlackHoleResearch/blob/main/docs/PITFALLS.md)\n"
     )
 
 
 # ---------------------------------------------------------------------------
-# File metadata banner
+# In-page selector + metric strip
 # ---------------------------------------------------------------------------
 
 @st.cache_data(show_spinner=False)
@@ -171,22 +139,114 @@ def cached_inspect(path_str: str):
     return bhio.inspect(path_str)
 
 
+# Streamlit ordering note: selectbox state can be read directly via the
+# default-return value, so this single widget drives the whole page.
+sel_col, m1, m2, m3, m4 = st.columns([2.4, 1, 1, 1, 1])
+selected_name = sel_col.selectbox(
+    "FITS file",
+    file_names,
+    index=0,
+    help="Files in fits_data/. The Overview tab below shows thumbnails for all of them.",
+    label_visibility="visible",
+)
+selected_path = DATA_DIR / selected_name
 hdus = cached_inspect(str(selected_path))
 primary = hdus[0]
 
-col_a, col_b, col_c, col_d = st.columns(4)
-col_a.metric("Telescope", primary.telescope or "—")
-col_b.metric("Instrument", primary.instrument or "—")
-col_c.metric("HDUs", len(hdus))
-col_d.metric("File size",
-             f"{selected_path.stat().st_size / 1e6:.1f} MB")
+m1.metric("Telescope",  primary.telescope or "—")
+m2.metric("Instrument", primary.instrument or "—")
+m3.metric("HDUs",       len(hdus))
+m4.metric("File size",  f"{selected_path.stat().st_size / 1e6:.1f} MB")
+
+st.divider()
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+TARGET_FILENAME_KEYS: dict[str, tuple[str, ...]] = {
+    "NGC 1068": ("ngc1068", "ngc_1068", "n1068", "ngc-1068"),
+    "M87":      ("m87",     "m_87",     "m-87",   "ngc4486"),
+    "Cyg X-1":  ("cygx1",   "cyg_x1",   "cyg-x1", "cygx-1", "cygx_1"),
+}
+
+
+def detect_target_from_filename(name: str) -> str | None:
+    """Map a FITS filename onto one of our canonical target names.
+
+    Pattern matching only — never network or header inspection here, since
+    this runs on every Streamlit rerun and needs to be free of side effects.
+    Returns the canonical target name (key into SEDS) or None.
+    """
+    lowered = name.lower().replace(" ", "")
+    for target, keys in TARGET_FILENAME_KEYS.items():
+        for k in keys:
+            if k in lowered:
+                return target
+    return None
+
+
+@st.cache_data(show_spinner=False)
+def thumbnail_png(path_str: str, stretch: str = "asinh", cmap: str = "inferno") -> bytes:
+    """Render a small preview PNG for the Overview grid.
+
+    Caches by (path, stretch, cmap) so file pickers stay fast. For files
+    with no 2D image HDU we bin the EVENTS extension at low resolution.
+    Returns PNG bytes ready for st.image; raises on totally invalid files
+    so the caller can surface an inline error rather than blanking out
+    the tab.
+    """
+    hdu_list = bhio.inspect(path_str)
+    fig = None
+    try:
+        image_idx = next(
+            (h.index for h in hdu_list
+             if h.hdu_type in ("PrimaryHDU", "ImageHDU", "CompImageHDU")
+             and h.shape and len(h.shape) == 2),
+            None,
+        )
+        if image_idx is not None:
+            img = bhio.load_image(path_str, hdu_index=image_idx)
+            fig = wp.render_image(
+                img, stretch=stretch, cmap=cmap, title=None,
+                show_colorbar=False, figsize=(3.4, 3.4),
+            )
+        elif any(h.name.upper() == "EVENTS" for h in hdu_list):
+            evlist = bhio.load_events(path_str)
+            arr, extent = bhio.bin_to_image(evlist, bins=192)
+            fig = wp.render_event_image(
+                arr, extent, stretch=stretch, cmap=cmap,
+                title=None, energy_band_label=None,
+                figsize=(3.4, 3.4),
+            )
+        else:
+            raise ValueError("no renderable HDU")
+
+        buf = _stdio.BytesIO()
+        fig.savefig(buf, format="png", dpi=110, bbox_inches="tight",
+                    facecolor=fig.get_facecolor())
+        return buf.getvalue()
+    finally:
+        if fig is not None:
+            plt.close(fig)
 
 
 # ---------------------------------------------------------------------------
 # Main tabs
 # ---------------------------------------------------------------------------
 
-tab_image, tab_sed, tab_xray, tab_spectrum, tab_lightcurve, tab_inspect, tab_about = st.tabs([
+(
+    tab_overview,
+    tab_image,
+    tab_sed,
+    tab_xray,
+    tab_spectrum,
+    tab_lightcurve,
+    tab_inspect,
+    tab_about,
+) = st.tabs([
+    "Overview",
     "Image",
     "SED Builder",
     "X-ray Events",
@@ -195,6 +255,49 @@ tab_image, tab_sed, tab_xray, tab_spectrum, tab_lightcurve, tab_inspect, tab_abo
     "Inspect",
     "About",
 ])
+
+# Overview is the landing tab. Image / X-ray Events configure their own
+# stretch+cmap in per-tab expanders because changing them mid-analysis
+# should not require a sidebar round-trip.
+
+# --------------------------- Overview tab ---------------------------------
+with tab_overview:
+    st.subheader("Dataset at a glance")
+    st.caption(
+        "One thumbnail per FITS file in `fits_data/`. Click the file name "
+        "in the selector at the top of the page to drill into any of them."
+    )
+
+    overview_cmap = st.selectbox(
+        "Thumbnail colormap",
+        ["inferno", "viridis", "magma", "plasma", "gray"],
+        index=0,
+        key="overview_cmap",
+        help="Affects the Overview grid only; per-tab views keep their own colormaps.",
+    )
+
+    n_cols = 3
+    cols = st.columns(n_cols)
+    for i, path in enumerate(files):
+        col = cols[i % n_cols]
+        with col:
+            try:
+                png = thumbnail_png(str(path), stretch="asinh", cmap=overview_cmap)
+                st.image(png, caption=path.name, use_container_width=True)
+            except Exception as e:
+                st.warning(f"{path.name}: {e}")
+            # Compact header line for at-a-glance context.
+            try:
+                preview_hdus = cached_inspect(str(path))
+                p0 = preview_hdus[0]
+                badges = " · ".join(filter(None, [
+                    p0.telescope, p0.instrument,
+                    f"{len(preview_hdus)} HDU{'s' if len(preview_hdus) != 1 else ''}",
+                ]))
+                if badges:
+                    st.caption(badges)
+            except Exception:
+                pass
 
 # --------------------------- Inspect tab ----------------------------------
 with tab_inspect:
@@ -242,12 +345,30 @@ with tab_image:
         "Axis labels become RA/Dec in J2000 sexagesimal when WCS is present."
     )
 
-    # Find first 2D image HDU
-    image_hdu_idx = None
-    for h in hdus:
-        if h.hdu_type in ("PrimaryHDU", "ImageHDU", "CompImageHDU") and h.shape and len(h.shape) == 2:
-            image_hdu_idx = h.index
-            break
+    with st.expander("Display options", expanded=False):
+        oc1, oc2 = st.columns(2)
+        image_stretch = oc1.selectbox(
+            "Stretch",
+            ["asinh", "log", "sqrt", "linear", "zscale"],
+            index=0,
+            key="image_stretch",
+            help="Nonlinear stretch for high-dynamic-range data. "
+                 "asinh is the modern default; zscale matches SAOImage DS9.",
+        )
+        image_cmap = oc2.selectbox(
+            "Colormap",
+            ["inferno", "viridis", "magma", "plasma", "gray", "cubehelix", "twilight"],
+            index=0,
+            key="image_cmap",
+            help="Perceptually uniform colormaps.",
+        )
+
+    image_hdu_idx = next(
+        (h.index for h in hdus
+         if h.hdu_type in ("PrimaryHDU", "ImageHDU", "CompImageHDU")
+         and h.shape and len(h.shape) == 2),
+        None,
+    )
 
     if image_hdu_idx is None:
         st.warning(
@@ -260,7 +381,7 @@ with tab_image:
             wcs_status = "WCS detected ✓" if img.wcs is not None else "no WCS — pixel coordinates only"
             st.caption(f"HDU {image_hdu_idx} · shape {img.array.shape} · {wcs_status}")
             fig = wp.render_image(
-                img, stretch=stretch, cmap=cmap,
+                img, stretch=image_stretch, cmap=image_cmap,
                 title=f"{selected_name}  ·  {primary.telescope or ''} {primary.instrument or ''}".strip(),
             )
             st.pyplot(fig, use_container_width=True)
@@ -300,6 +421,21 @@ with tab_xray:
             "XMM-Newton EPIC event file, or NuSTAR event list."
         )
     else:
+        with st.expander("Display options", expanded=False):
+            oc1, oc2 = st.columns(2)
+            xray_stretch = oc1.selectbox(
+                "Stretch",
+                ["asinh", "log", "sqrt", "linear", "zscale"],
+                index=0,
+                key="xray_stretch",
+            )
+            xray_cmap = oc2.selectbox(
+                "Colormap",
+                ["inferno", "viridis", "magma", "plasma", "gray", "cubehelix"],
+                index=0,
+                key="xray_cmap",
+            )
+
         c1, c2 = st.columns(2)
         bin_size = c1.slider("Bins per side", 128, 1024, 512, step=64)
         e_lo = c2.slider("Soft energy cutoff (eV)", 100, 3000, 500, step=100)
@@ -317,7 +453,7 @@ with tab_xray:
             )
             fig = wp.render_event_image(
                 image_arr, extent,
-                stretch=stretch, cmap=cmap,
+                stretch=xray_stretch, cmap=xray_cmap,
                 title=f"{selected_name}  ·  {evlist.mission}",
                 energy_band_label=(f"{e_lo/1000:.1f}-{e_hi/1000:.1f} keV"
                                    if evlist.energy_unit == "eV" else None),
@@ -391,8 +527,18 @@ with tab_sed:
             "Phase 2."
         )
 
+    TARGETS = ["NGC 1068", "M87", "Cyg X-1"]
+    auto_target = detect_target_from_filename(selected_name)
+    default_idx = TARGETS.index(auto_target) if auto_target in TARGETS else 0
     target_choice = st.selectbox(
-        "Target", ["NGC 1068", "M87", "Cyg X-1"], index=0,
+        "Target",
+        TARGETS,
+        index=default_idx,
+        help=(
+            f"Auto-detected from filename → **{auto_target}**. Switch manually if needed."
+            if auto_target
+            else "Filename doesn't match a known target. Choose manually."
+        ),
     )
 
     # Hardcoded illustrative SED values per target. In a Phase 2 build,

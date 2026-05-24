@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — UX: Overview tab and per-tab display controls
+- Added an **Overview** tab as the new landing surface: a 3-column
+  thumbnail grid that renders every file in `fits_data/` (image HDUs
+  via stretched intensity, event-list files via low-resolution bin maps).
+  Cached per (path, stretch, cmap).
+- Moved the **file picker** out of the sidebar and into a top-of-page
+  selector next to the metric strip, so file choice and file metadata
+  sit together.
+- Moved **stretch and colormap** controls out of the sidebar and into
+  per-tab "Display options" expanders on the Image and X-ray Events
+  tabs. Each tab now owns the display state it actually drives.
+- The SED tab now **auto-detects** its target from the active filename
+  (recognises `ngc1068`, `m87`, `cygx1` patterns), preselecting the
+  matching SED entry so the page lands ready to read.
+- Sidebar trimmed to **orientation content only**: dataset stats,
+  target list, data-source links, and repo/plan/pitfalls cross-links.
+
+### Deferred — explicitly tracked for M1
+- "Science banner" redesign (target-aware physics summary above the
+  fold). Currently kept as a generic intro block; will become
+  catalog-driven once the source-catalog work in M1 lands. Tracked in
+  `PHASE2_PLAN.md` (M1 scope notes) and as a comment at the top of
+  `app.py`.
+
 ### Added — M0 regression net & repo hardening
 - `pyproject.toml` — PEP 621 project metadata, dependency pins, pytest and
   coverage config; installable via `pip install -e ".[dev]"`.
