@@ -1,0 +1,178 @@
+# Citation File Format v1.2.0 — https://citation-file-format.github.io/
+# Validates against https://github.com/citation-file-format/cffconvert
+cff-version: 1.2.0
+title: "BlackHoleResearch: A Multiwavelength FITS Explorer for Black Hole Astrophysics"
+message: >-
+  If you use this software in a publication, please cite both the software
+  itself (using the metadata in this file) and the relevant primary-source
+  references for the physics formulas you rely on. Primary-source citations
+  are listed inline in each module docstring and aggregated in PHASE2_PLAN.md
+  §11.
+type: software
+version: 0.1.0
+date-released: "2026-05-23"
+license: MIT
+repository-code: "https://github.com/ysSemanticSystems/BlackHoleResearch"
+url: "https://github.com/ysSemanticSystems/BlackHoleResearch"
+abstract: >-
+  BlackHoleResearch is an open-source, Streamlit-based, multiwavelength FITS
+  explorer designed for black hole astrophysics research and teaching. It
+  loads astronomical FITS files from heterogeneous NASA missions (Chandra,
+  XMM-Newton, NuSTAR, ROSAT, JWST, WISE, 2MASS, VLA, DSS), renders them
+  with proper World Coordinate System (WCS) overlays and nonlinear stretches,
+  bins X-ray event lists into images, fits descriptive power laws to PHA
+  spectra, computes Lomb-Scargle periodograms and Vaughan+2003 fractional
+  rms variability, and assembles multi-band Spectral Energy Distributions
+  (SEDs) for classical AGN regimes (Seyfert 2 NGC 1068, low-luminosity AGN
+  M87, stellar-mass black hole X-ray binary Cyg X-1). Phase 2 adds the JWST
+  Little Red Dot (LRD) population with L_X/L_UV (Lusso & Risaliti 2016),
+  Balmer-break, and broad-Hα black-hole-mass diagnostics. Built on astropy,
+  astroquery, photutils, and specutils.
+authors:
+  - alias: ysSemanticSystems
+    name: ysSemanticSystems
+keywords:
+  # Discipline and topic
+  - astrophysics
+  - astronomy
+  - black-holes
+  - active-galactic-nuclei
+  - agn
+  - quasars
+  - x-ray-binaries
+  - little-red-dots
+  - accretion-disk
+  - relativistic-jets
+  - multiwavelength-astronomy
+  # Methods and physics
+  - spectral-energy-distribution
+  - sed
+  - eddington-luminosity
+  - shakura-sunyaev-disk
+  - hardness-ratio
+  - photon-index
+  - lomb-scargle-periodogram
+  - fractional-rms-variability
+  - aperture-photometry
+  - balmer-break
+  # Data formats and standards
+  - fits
+  - ogip
+  - pha
+  - rmf
+  - arf
+  - wcs
+  - skyview
+  - heasarc
+  - mast
+  - simbad
+  # Missions / surveys
+  - chandra
+  - xmm-newton
+  - nustar
+  - rosat
+  - jwst
+  - nirspec
+  - nircam
+  - wise
+  - 2mass
+  - irsa
+  - vla
+  - first-survey
+  - iris
+  - akari
+  - dss
+  - eht
+  # Tooling
+  - astropy
+  - astroquery
+  - photutils
+  - specutils
+  - streamlit
+  - python
+  - data-visualization
+  - reproducible-research
+identifiers:
+  - type: url
+    value: "https://github.com/ysSemanticSystems/BlackHoleResearch"
+    description: GitHub repository
+references:
+  - type: article
+    authors:
+      - family-names: Shakura
+        given-names: N. I.
+      - family-names: Sunyaev
+        given-names: R. A.
+    title: "Black holes in binary systems. Observational appearance."
+    year: 1973
+    journal: "Astronomy & Astrophysics"
+    volume: 24
+    start: 337
+  - type: article
+    authors:
+      - family-names: Vaughan
+        given-names: S.
+      - family-names: Edelson
+        given-names: R.
+      - family-names: Warwick
+        given-names: R. S.
+      - family-names: Uttley
+        given-names: P.
+    title: "On characterizing the variability properties of X-ray light curves from active galaxies"
+    year: 2003
+    journal: "Monthly Notices of the Royal Astronomical Society"
+    volume: 345
+    start: 1271
+  - type: article
+    authors:
+      - family-names: Stern
+        given-names: D.
+      - family-names: Assef
+        given-names: R. J.
+      - family-names: et al.
+    title: "Mid-infrared selection of active galactic nuclei with the Wide-Field Infrared Survey Explorer"
+    year: 2012
+    journal: "Astrophysical Journal"
+    volume: 753
+    start: 30
+  - type: article
+    authors:
+      - family-names: Donley
+        given-names: J. L.
+      - family-names: et al.
+    title: "Identifying luminous active galactic nuclei in deep surveys: revised IRAC selection criteria"
+    year: 2012
+    journal: "Astrophysical Journal"
+    volume: 748
+    start: 142
+  - type: article
+    authors:
+      - family-names: Lusso
+        given-names: E.
+      - family-names: Risaliti
+        given-names: G.
+    title: "The tight relation between X-ray and ultraviolet luminosity of quasars"
+    year: 2016
+    journal: "Astrophysical Journal"
+    volume: 819
+    start: 154
+  - type: article
+    authors:
+      - family-names: Greene
+        given-names: J. E.
+      - family-names: et al.
+    title: "UNCOVER spectroscopy confirms a population of black holes at z > 4"
+    year: 2024
+    journal: "Astrophysical Journal"
+    volume: 964
+    start: 39
+  - type: article
+    authors:
+      - family-names: Maiolino
+        given-names: R.
+      - family-names: et al.
+    title: "JADES — The diverse population of infant black holes at 4 < z < 11"
+    year: 2024
+    journal: "Astronomy & Astrophysics"
+    volume: 691
+    start: A145

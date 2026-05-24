@@ -1,0 +1,170 @@
+{
+  "@context": "https://doi.org/10.5063/schema/codemeta-2.0",
+  "@type": "SoftwareSourceCode",
+  "name": "BlackHoleResearch",
+  "description": "A Streamlit-based multiwavelength FITS explorer for black hole astrophysics. Loads FITS data from Chandra, XMM-Newton, NuSTAR, ROSAT, JWST (NIRSpec/NIRCam), WISE, 2MASS, VLA, and DSS, renders sky images with WCS overlays and nonlinear stretches, bins X-ray event lists into images, fits descriptive power laws to OGIP PHA spectra, computes Lomb-Scargle periodograms and Vaughan+2003 fractional rms variability, and assembles multi-band Spectral Energy Distributions for classical AGN regimes (NGC 1068, M87, Cyg X-1). Phase 2 adds the JWST Little Red Dot population with L_X/L_UV (Lusso & Risaliti 2016), Balmer-break, and broad-Halpha black-hole-mass diagnostics.",
+  "identifier": "BlackHoleResearch",
+  "version": "0.1.0",
+  "dateCreated": "2026-05-23",
+  "dateModified": "2026-05-23",
+  "datePublished": "2026-05-23",
+  "license": "https://spdx.org/licenses/MIT",
+  "codeRepository": "https://github.com/ysSemanticSystems/BlackHoleResearch",
+  "issueTracker": "https://github.com/ysSemanticSystems/BlackHoleResearch/issues",
+  "programmingLanguage": [
+    "Python"
+  ],
+  "runtimePlatform": "Python 3.11",
+  "operatingSystem": [
+    "Linux",
+    "macOS",
+    "Windows"
+  ],
+  "softwareRequirements": [
+    "Python >= 3.11",
+    "astropy >= 6.1",
+    "astroquery >= 0.4.7",
+    "numpy >= 1.26",
+    "scipy >= 1.11",
+    "matplotlib >= 3.8",
+    "specutils >= 1.15",
+    "regions >= 0.9",
+    "streamlit >= 1.40",
+    "plotly >= 5.24",
+    "pandas >= 2.2"
+  ],
+  "applicationCategory": "Astronomy",
+  "developmentStatus": "active",
+  "isAccessibleForFree": true,
+  "audience": [
+    {
+      "@type": "Audience",
+      "audienceType": "researchers"
+    },
+    {
+      "@type": "Audience",
+      "audienceType": "astronomers"
+    },
+    {
+      "@type": "Audience",
+      "audienceType": "students"
+    },
+    {
+      "@type": "Audience",
+      "audienceType": "educators"
+    }
+  ],
+  "keywords": [
+    "astrophysics",
+    "astronomy",
+    "black-holes",
+    "active galactic nuclei",
+    "AGN",
+    "Seyfert galaxies",
+    "quasars",
+    "X-ray binaries",
+    "Little Red Dots",
+    "LRD",
+    "accretion disk",
+    "Shakura-Sunyaev",
+    "Eddington luminosity",
+    "multiwavelength",
+    "spectral energy distribution",
+    "SED",
+    "FITS",
+    "OGIP",
+    "PHA spectrum",
+    "WCS",
+    "Lomb-Scargle",
+    "fractional rms variability",
+    "hardness ratio",
+    "photon index",
+    "Balmer break",
+    "JWST",
+    "NIRSpec",
+    "NIRCam",
+    "Chandra",
+    "XMM-Newton",
+    "NuSTAR",
+    "ROSAT",
+    "WISE",
+    "2MASS",
+    "VLA",
+    "FIRST",
+    "DSS",
+    "EHT",
+    "SkyView",
+    "HEASARC",
+    "MAST",
+    "NASA",
+    "astropy",
+    "astroquery",
+    "photutils",
+    "specutils",
+    "Streamlit",
+    "Python",
+    "data visualization",
+    "reproducible research",
+    "open science"
+  ],
+  "author": [
+    {
+      "@type": "Person",
+      "givenName": "ysSemanticSystems",
+      "familyName": "",
+      "@id": "https://github.com/ysSemanticSystems"
+    }
+  ],
+  "maintainer": [
+    {
+      "@type": "Person",
+      "givenName": "ysSemanticSystems",
+      "familyName": "",
+      "@id": "https://github.com/ysSemanticSystems"
+    }
+  ],
+  "funder": {
+    "@type": "Organization",
+    "name": "Self-funded / community"
+  },
+  "readme": "https://github.com/ysSemanticSystems/BlackHoleResearch/blob/main/README.md",
+  "softwareHelp": "https://github.com/ysSemanticSystems/BlackHoleResearch/blob/main/README.md",
+  "buildInstructions": "See README.md — `python3.11 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt && python scripts/download_data.py && streamlit run app.py`",
+  "referencePublication": [
+    {
+      "@type": "ScholarlyArticle",
+      "name": "Black holes in binary systems. Observational appearance.",
+      "author": "Shakura, N. I. & Sunyaev, R. A.",
+      "datePublished": "1973",
+      "isPartOf": "Astronomy & Astrophysics, 24, 337"
+    },
+    {
+      "@type": "ScholarlyArticle",
+      "name": "On characterizing the variability properties of X-ray light curves from active galaxies",
+      "author": "Vaughan, S., Edelson, R., Warwick, R. S., Uttley, P.",
+      "datePublished": "2003",
+      "isPartOf": "MNRAS, 345, 1271"
+    },
+    {
+      "@type": "ScholarlyArticle",
+      "name": "Mid-infrared selection of active galactic nuclei with WISE",
+      "author": "Stern, D. et al.",
+      "datePublished": "2012",
+      "isPartOf": "ApJ, 753, 30"
+    },
+    {
+      "@type": "ScholarlyArticle",
+      "name": "The tight relation between X-ray and ultraviolet luminosity of quasars",
+      "author": "Lusso, E. & Risaliti, G.",
+      "datePublished": "2016",
+      "isPartOf": "ApJ, 819, 154"
+    }
+  ],
+  "relatedLink": [
+    "https://www.astropy.org/",
+    "https://heasarc.gsfc.nasa.gov/",
+    "https://skyview.gsfc.nasa.gov/",
+    "https://mast.stsci.edu/",
+    "https://ui.adsabs.harvard.edu/"
+  ]
+}

@@ -1,0 +1,85 @@
+{
+  "title": "BlackHoleResearch: A Multiwavelength FITS Explorer for Black Hole Astrophysics",
+  "description": "<p><strong>BlackHoleResearch</strong> is an open-source, Streamlit-based multiwavelength FITS explorer for black hole astrophysics research and teaching. It loads NASA-archive FITS data from Chandra, XMM-Newton, NuSTAR, ROSAT, JWST (NIRSpec/NIRCam), WISE, 2MASS, VLA, and DSS; renders images with proper WCS overlays and asinh/log/zscale stretches; bins X-ray event lists; fits descriptive power laws to OGIP PHA spectra; computes Lomb-Scargle periodograms and Vaughan+2003 fractional rms variability; and assembles multi-band Spectral Energy Distributions for classical AGN regimes (Seyfert 2 NGC 1068, low-luminosity AGN M87, stellar-mass BH X-ray binary Cyg X-1).</p><p>Phase 2 adds JWST <em>Little Red Dot</em> (LRD) diagnostics: L_X/L_UV vs Lusso &amp; Risaliti 2016, Balmer-break detector, and broad-H&alpha;-based black-hole-mass estimation (Reines &amp; Volonteri 2015).</p><p>Built on astropy, astroquery, photutils, specutils. MIT-licensed. Includes a documented FITS-handling pitfalls catalog covering event-list-vs-image confusion, WCS gotchas, GTI artifacts, OGIP RMF/ARF requirements, Vega-vs-AB photometry, mission time systems, and memmap invalidation.</p>",
+  "upload_type": "software",
+  "access_right": "open",
+  "license": "MIT",
+  "creators": [
+    {
+      "name": "ysSemanticSystems",
+      "affiliation": "Independent"
+    }
+  ],
+  "keywords": [
+    "astrophysics",
+    "astronomy",
+    "black holes",
+    "active galactic nuclei",
+    "AGN",
+    "Little Red Dots",
+    "LRD",
+    "JWST",
+    "Chandra",
+    "XMM-Newton",
+    "NuSTAR",
+    "ROSAT",
+    "WISE",
+    "2MASS",
+    "VLA",
+    "spectral energy distribution",
+    "SED",
+    "X-ray binary",
+    "accretion disk",
+    "Eddington luminosity",
+    "Lomb-Scargle",
+    "fractional rms variability",
+    "FITS",
+    "OGIP",
+    "WCS",
+    "astropy",
+    "Streamlit",
+    "Python",
+    "multiwavelength",
+    "reproducible research",
+    "NASA archival data"
+  ],
+  "communities": [
+    {"identifier": "astronomy"},
+    {"identifier": "astrophysics"},
+    {"identifier": "open-science"}
+  ],
+  "language": "eng",
+  "subjects": [
+    {
+      "term": "Astrophysics",
+      "identifier": "https://www.wikidata.org/wiki/Q4128",
+      "scheme": "wikidata"
+    },
+    {
+      "term": "Black hole",
+      "identifier": "https://www.wikidata.org/wiki/Q589",
+      "scheme": "wikidata"
+    },
+    {
+      "term": "Active galactic nucleus",
+      "identifier": "https://www.wikidata.org/wiki/Q200843",
+      "scheme": "wikidata"
+    }
+  ],
+  "related_identifiers": [
+    {
+      "relation": "isSupplementTo",
+      "identifier": "https://github.com/ysSemanticSystems/BlackHoleResearch",
+      "resource_type": "software"
+    }
+  ],
+  "references": [
+    "Shakura, N. I. & Sunyaev, R. A. (1973). Black holes in binary systems. Observational appearance. A&A 24, 337.",
+    "Vaughan, S., Edelson, R., Warwick, R. S., Uttley, P. (2003). MNRAS 345, 1271.",
+    "Stern, D. et al. (2012). Mid-infrared selection of AGN with WISE. ApJ 753, 30.",
+    "Donley, J. L. et al. (2012). Revised IRAC AGN wedge. ApJ 748, 142.",
+    "Lusso, E. & Risaliti, G. (2016). The L_X / L_UV relation. ApJ 819, 154.",
+    "Greene, J. E. et al. (2024). UNCOVER spectroscopy of LRDs. ApJ 964, 39.",
+    "Maiolino, R. et al. (2024). JADES infant black holes. A&A 691, A145."
+  ]
+}
