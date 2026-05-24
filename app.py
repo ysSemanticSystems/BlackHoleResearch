@@ -31,17 +31,14 @@ st.set_page_config(
     page_title="BlackHoleResearch — Multiwavelength FITS Explorer",
     page_icon="🕳️",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
 
 st.markdown(
     """
     <style>
     .block-container { padding-top: 1rem; padding-bottom: 1rem; }
-    h1 { background: linear-gradient(90deg, #00d4ff, #ff006e);
-         -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-         background-clip: text;
-         margin-bottom: 0.25rem; }
+    h1 { margin-bottom: 0.25rem; }
     h1 + p { margin-top: 0; }
     .metric-card {
         background-color: #1a1d29; border: 1px solid #303446;
@@ -190,13 +187,13 @@ col_d.metric("File size",
 # Main tabs
 # ---------------------------------------------------------------------------
 
-tab_inspect, tab_image, tab_xray, tab_spectrum, tab_sed, tab_lightcurve, tab_about = st.tabs([
-    "Inspect",
+tab_image, tab_sed, tab_xray, tab_spectrum, tab_lightcurve, tab_inspect, tab_about = st.tabs([
     "Image",
+    "SED Builder",
     "X-ray Events",
     "Spectrum",
-    "SED Builder",
     "Light Curve",
+    "Inspect",
     "About",
 ])
 
