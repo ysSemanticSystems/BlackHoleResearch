@@ -1,0 +1,133 @@
+---
+description: Python style conventions for this codebase (3.11+, dataclasses-first).
+globs: **/*.py
+alwaysApply: false
+---
+
+# Python style
+
+Python 3.11+. Modern syntax. Strict typing. Dataclasses-first.
+
+## Imports
+
+Three groups, blank line between each, alphabetised within:
+
+```python
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+
+import numpy as np
+import matplotlib.pyplot as plt
+import astropy.units as u
+from astropy.io import fits
+
+from blackhole.catalog import Source
+from blackhole.io import ImageData
+```
+
+- Always `from __future__ import annotations` at top of every module.
+- Never `from X import *`.
+- Never relative imports beyond one level: `from .io import X` is fine,
+  `from ..physics.accretion import Y` is not.
+
+## Typing
+
+- Public functions are fully annotated, including return type.
+- Use `X | None`, not `Optional[X]`. Use `list[int]`, not `List[int]`.
+- Use `np.ndarray` for arrays; `u.Quantity` for quantities; never `Any`
+  except as a last resort with a `# type: ignore[reason]` comment.
+- `Literal` for string-enum-like arguments.
+
+```python
+def render_image(
+    image: ImageData,
+    *,
+    stretch: Literal["linear", "sqrt", "log", "asinh", "zscale"] = "asinh",
+    cmap: str = "inferno",
+) -> Figure:
+    ...
+```
+
+## Dataclasses
+
+Data is dataclasses, behavior is functions, classes only when there is
+real state.
+
+```python
+@dataclass(frozen=True)
+class Source:
+    name: str
+    redshift: float | None
+```
+
+- `frozen=True` is the default for public dataclasses.
+- Use `field(default_factory=list)` for mutable defaults.
+- Constructors that need validation become a `@classmethod` factory.
+
+## Function design
+
+- One responsibility per function.
+- Keyword-only arguments after the first positional or two:
+  ```python
+  def fit_power_law(spectrum, *, channel_range=None): ...
+  ```
+- Functions taking many arguments → take a dataclass instead.
+- Private helpers begin with `_`.
+- Module-level mutable state is forbidden except for caches and registries
+  (and those are documented).
+
+## Errors
+
+- Raise specific exception types. Use the project hierarchy:
+  - `UncalibratedDataError` — calibration not available.
+  - `FITSHeaderError` — required FITS keyword missing.
+  - `FitFailedError` — numerical fit did not converge.
+- Empty selections return empty containers, never raise.
+- Never catch bare `Exception` outside of UI boundaries (`app.py`,
+  `scripts/`).
+
+```python
+# GOOD
+try:
+    fit = fit_power_law(spec)
+except FitFailedError as e:
+    st.warning(f"Fit failed: {e}")
+
+# BAD
+try:
+    fit = fit_power_law(spec)
+except Exception:   # swallows everything, including bugs
+    fit = None
+```
+
+## Logging
+
+```python
+import logging
+logger = logging.getLogger(__name__)
+
+logger.info("Loaded %d events from %s", events.times.size, path.name)
+```
+
+Never `print()` outside `scripts/`. Use `%s`-formatting in logger calls,
+not f-strings, to avoid formatting cost on disabled levels.
+
+## Tools
+
+- Formatter: `ruff format` (Black-compatible, 88-col).
+- Linter: `ruff check` (settings in `ruff.toml`).
+- Type checker: `mypy --strict blackhole/`.
+
+Run all three before pushing.
+
+## Things to avoid
+
+- `numpy` views that survive a `with fits.open()` block — `.copy()` first.
+  See PITFALLS #9.
+- Mutating function arguments. Return new objects.
+- `time.sleep` in library code.
+- `os.environ` reads outside of `scripts/` or a clearly named
+  `_config.py`.
+- `eval` / `exec` — banned outright.

@@ -1,0 +1,78 @@
+---
+description: Commit message and pull request conventions.
+alwaysApply: true
+---
+
+# Commits and PRs
+
+## Commit messages
+
+- Imperative mood: "Add aperture photometry," not "Added" or "Adds."
+- Subject line ≤72 chars, no trailing period.
+- Body wrapped at 80 columns, separated from subject by a blank line.
+- Reference milestone in the subject when applicable:
+  `M3: Add aperture_photometry returning calibrated SEDPoint`.
+- One logical change per commit. Mixed-concern commits are rebased into
+  separate commits before merge.
+
+### Good
+```
+M3: Add aperture_photometry returning calibrated SEDPoint
+
+Computes background-subtracted aperture flux on a CalibratedImage using
+photutils. Background is the median of an annulus; uncertainty is the
+MAD of the same annulus scaled to the aperture area.
+
+Returns SEDPoint with upper_limit=True when measured flux < 3 sigma_bg.
+
+Tests cover a synthetic Gaussian source (recovery within 2%) and an
+upper-limit case.
+
+Refs: PHASE2_PLAN.md M3
+```
+
+### Bad
+```
+fixed stuff
+```
+
+## Pull requests
+
+A PR is mergeable when:
+
+1. **Title** references the milestone: `M3: Aperture photometry pipeline`.
+2. **Description** ticks off every exit criterion from the milestone, with
+   commit SHAs where the work was done.
+3. **CI** is fully green (ruff, mypy, pytest, coverage threshold, nbmake).
+4. **CHANGELOG.md** updated under `## [Unreleased]`.
+5. **No new debt** introduced (no new `# TODO` without a tracking issue).
+6. **Reviewer** approval is recorded (self-merge with explicit note is
+   allowed for solo work but must say so).
+
+## PR description template
+
+```markdown
+## Milestone
+PHASE2_PLAN.md §4 — M3 (Aperture photometry pipeline)
+
+## Summary
+1–3 sentences on what changes.
+
+## Exit criteria
+- [x] `tests/test_photometry.py::test_recover_synthetic_source` passes.
+- [x] No literal flux values remain inside `app.py`.
+- [x] UI shows aperture radius, background annulus, 1-σ uncertainty.
+
+## Trade-offs and follow-ups
+What's deferred. What's not perfect.
+
+## How to test locally
+```bash
+pytest tests/test_photometry.py -v
+streamlit run app.py
+```
+
+## Provenance
+This PR was assisted by an AI agent (yes/no). All scientific claims are
+verified by a human reviewer.
+```

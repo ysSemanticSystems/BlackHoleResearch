@@ -1,0 +1,157 @@
+---
+description: FITS-specific dos and don'ts for any module touching astronomical files.
+globs: blackhole/io.py,blackhole/calibration.py,blackhole/photometry.py,blackhole/jwst.py,blackhole/spectra.py,blackhole/lightcurves.py,blackhole/wcs_plot.py,blackhole/_rgb.py,scripts/**/*.py
+alwaysApply: false
+---
+
+# FITS handling
+
+Heuristics that prevent the failure modes in `docs/PITFALLS.md`. Read that
+document first if you have not.
+
+## 1. Inspect before loading
+
+Always start by listing HDUs and reading headers. The first HDU is often
+empty (NAXIS=0); the payload lives in a later extension.
+
+```python
+hdus = bhio.inspect(path)
+# inspect every HDU, pick the right one by name or content
+```
+
+## 2. Copy on read; never hold a memmap
+
+`astropy.io.fits` memory-maps array data by default. The mapping is
+invalidated when the file closes. Always `.copy()` before exiting the
+`with` block.
+
+```python
+# GOOD
+with fits.open(path) as hdul:
+    array = hdul[idx].data.copy()
+    header = hdul[idx].header.copy()
+
+# BAD — segfault waiting to happen
+with fits.open(path) as hdul:
+    array = hdul[idx].data
+# `array` here references invalid memory.
+```
+
+(PITFALLS #9.)
+
+## 3. Event lists are not images
+
+Chandra / XMM / NuSTAR / NICER files store **photon tables**, not images.
+Use `bhio.load_events(...)` then `bhio.bin_to_image(...)`. Calling
+`imshow` on the raw HDU is wrong.
+
+(PITFALLS #1.)
+
+## 4. WCS must be verified, not assumed
+
+`WCS(header)` returns an object even when the header has no celestial
+mapping. Check:
+
+```python
+wcs = WCS(header)
+if not wcs.has_celestial or wcs.naxis < 2:
+    wcs = None   # fall back to pixel coordinates, label honestly
+```
+
+(PITFALLS #3.)
+
+## 5. Stretches are not optional
+
+Astronomical images span 4–7 orders of magnitude. Linear stretch on raw
+data is wrong by default. Use `astropy.visualization`:
+
+- `AsinhStretch(a=0.1)` — modern default.
+- `LogStretch` — faint extended structure.
+- `ZScaleInterval` — DS9-style quick inspection.
+
+(PITFALLS #2.)
+
+## 6. `origin='lower'` on every imshow
+
+FITS pixel (1, 1) is bottom-left on the sky. NumPy / matplotlib default to
+top-left. Always pass `origin="lower"`.
+
+```python
+ax.imshow(image.array, origin="lower", ...)
+```
+
+(PITFALLS #4.)
+
+## 7. Energy filter only when the unit is eV
+
+Chandra event files store energies in eV; XMM/NuSTAR store PI channels.
+An `energy_range_ev=(500, 7000)` filter on PI data silently filters on
+channel numbers and is wrong.
+
+```python
+if events.energy_unit == "eV":
+    mask = (events.energies >= e_lo) & (events.energies <= e_hi)
+    ...
+```
+
+(PITFALLS #12.)
+
+## 8. GTI awareness for light curves
+
+A bin overlapping no Good Time Interval is **dropped**, not rendered as
+zero. Effective exposure per bin = intersection of bin and GTIs. Poisson
+errors use effective exposure, not bin width.
+
+(PITFALLS #10; M4.)
+
+## 9. PHA spectra need RMF/ARF for energy
+
+Channel space is not energy space. A power-law fit to (channel, counts)
+returns a slope, not a publication-grade Γ. Either label honestly
+(`α_channel`) or fit through Sherpa with the proper response files.
+
+(PITFALLS #7; M5.)
+
+## 10. Time systems differ by mission
+
+- Chandra, XMM-Newton: seconds since 1998-01-01 00:00:00 TT.
+- NuSTAR: seconds since 2010-01-01 00:00:00 UTC.
+
+Convert with `astropy.time.Time(..., format='cxcsec', scale='tt')` or
+similar before cross-mission comparison.
+
+(PITFALLS #13.)
+
+## 11. WISE / 2MASS magnitudes: Vega, not AB
+
+WISE catalogs and the Stern+2012 / Donley+2012 cuts are defined in Vega
+magnitudes. Convert before applying or after measuring AB.
+
+```python
+W1_AB = W1_Vega + 2.699   # Wright+2010
+```
+
+(PITFALLS #6.)
+
+## 12. Header keyword access
+
+Use `header.get(key)` returning `None`, not `header[key]` which raises.
+Old FITS files routinely lack standard keys.
+
+```python
+exposure_s = header.get("EXPOSURE") or header.get("ONTIME") or header.get("LIVETIME")
+```
+
+## 13. Sanitize before writing
+
+Some surveys (notably VLA FIRST via SkyView) ship cards with unprintable
+characters. When rewriting, pass `output_verify="ignore"` and consider
+running `silentfix` per card. See `scripts/download_data.py` for the
+reference pattern.
+
+## What this rule does **not** cover
+
+- Per-survey flux calibration. That's `04-... → calibration.py` and is its
+  own discipline; see `blackhole/calibration.py` and the calibration table
+  in `docs/calibration_table.md`.
+- JWST-specific conventions (MJSR, CRDS context). See `blackhole/jwst.py`.

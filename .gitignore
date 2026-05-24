@@ -37,3 +37,19 @@ outputs/
 
 # Logs
 *.log
+
+# Coverage / typing / build artifacts
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+build/
+dist/
+*.egg
+
+# joblib + project caches
+.joblib_cache/
+.cache/
+
+# Notebook execution artifacts
+docs/notebooks/*.executed.ipynb

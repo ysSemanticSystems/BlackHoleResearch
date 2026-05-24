@@ -1,0 +1,114 @@
+---
+description: Calibration, units, uncertainty, and upper-limit discipline.
+globs: blackhole/**/*.py
+alwaysApply: false
+---
+
+# Scientific honesty
+
+The most important rule in this repo. Numbers are honest or they don't exist.
+
+## 1. Never invent a value
+
+If a measurement cannot be computed, the function returns one of:
+
+- `None` (for an optional output);
+- A sentinel like `float("nan")` with a documented meaning;
+- An `SEDPoint(... upper_limit=True ...)` with `flux_density = 3 σ_bg`;
+- A raised exception (`UncalibratedDataError`, `FITSHeaderError`, ...).
+
+It does **not** silently return zero, a typical literature value, or a
+plausibly-shaped number.
+
+## 2. Units are mandatory for physical quantities
+
+```python
+# GOOD
+flux: u.Quantity = 1.6 * u.Jy
+wavelength: u.Quantity = 2.2 * u.micron
+distance: u.Quantity = 14.4 * u.Mpc
+
+# BAD — drop on the floor
+flux: float = 1.6   # Jy? mJy? erg/s/cm²/Hz?
+```
+
+`Quantity` conversion happens at three boundaries only:
+1. FITS calibrator (header → `Quantity`).
+2. Renderer (`Quantity` → matplotlib axis).
+3. Scipy/numpy inputs that reject `Quantity` (`.to(u.X).value`).
+
+Anywhere else, drop the unit and you've introduced a bug.
+
+## 3. Every measurement carries an uncertainty
+
+Output of any photometry, fit, or aggregation includes:
+
+- A central value, *and*
+- A 1-σ uncertainty (or an asymmetric `(err_lo, err_hi)`), *or*
+- A documented reason why an uncertainty is unavailable, shown to the user.
+
+```python
+# GOOD
+@dataclass
+class SEDPoint:
+    flux_density: u.Quantity
+    flux_err: u.Quantity | None
+    upper_limit: bool = False
+```
+
+## 4. Upper limits are a first-class result
+
+If the measured flux is below 3·σ_background, return
+`upper_limit=True, flux_density = 3 σ_bg`. The SED renderer draws these
+as downward arrows (already implemented in `sed.py`). Do **not** report a
+2σ blip as a detection.
+
+## 5. Hardcoded literature values are tech debt
+
+The only places literal flux / mass / distance / redshift may appear in
+code:
+
+| Location | Allowed? |
+|---|---|
+| `blackhole/catalog.py` | yes (with `*_ref` citation) |
+| `tests/**` | yes (as expected values for assertions) |
+| `docs/literature_seds.py` | yes (overlay comparison data, M3) |
+| `app.py` | **no** |
+| `blackhole/sed.py`, `blackhole/physics/*` | **no** |
+| Anywhere else | **no** |
+
+When you find one elsewhere, move it to `catalog.py` and cite the source.
+
+## 6. Calibration is not negotiable
+
+```python
+# GOOD
+def aperture_photometry(cal: CalibratedImage, ...) -> SEDPoint:
+    # cal.array has units (Jy/pix, MJy/sr, ...).
+    ...
+
+# BAD
+def aperture_photometry(img: ImageData, ...) -> SEDPoint:
+    # img.array has whatever the FITS file had. Could be anything.
+    ...
+```
+
+If you find yourself writing arithmetic on raw FITS pixel values for a
+flux, you missed the calibration step. Go through `blackhole.calibration`.
+
+## 7. Surface assumptions to the user
+
+When your function makes a default choice that affects results (cosmology,
+extinction, aperture radius, energy band), the UI must show that choice
+and the underlying citation.
+
+## Checklist before merging a measurement-producing change
+
+- [ ] Result carries units (`Quantity`) or is explicitly dimensionless.
+- [ ] Result carries a 1-σ uncertainty or a documented `None`.
+- [ ] Upper-limit detection is implemented if S/N can be < 3.
+- [ ] No hardcoded literature value outside `catalog.py` / `tests/` /
+      `docs/literature_seds.py`.
+- [ ] Provenance is attached to any plot produced.
+- [ ] A unit test exercises the function with a hand-computed expected
+      value.

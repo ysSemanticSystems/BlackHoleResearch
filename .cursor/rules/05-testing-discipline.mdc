@@ -1,0 +1,105 @@
+---
+description: Test taxonomy and regression-net requirements for every change.
+globs: tests/**/*.py,blackhole/**/*.py
+alwaysApply: false
+---
+
+# Testing discipline
+
+A regression test net is a precondition for scaling this codebase. No
+feature expands without its safety net.
+
+## Test taxonomy
+
+| Kind | Location | Purpose |
+|---|---|---|
+| **Unit** | `tests/test_<module>.py` | One per public function. Synthetic inputs, hand-computed outputs. |
+| **Physics regression** | `tests/test_physics/*.py` | Reproduce textbook values to specified precision. |
+| **Integration** | `tests/integration/*.py` | End-to-end: file → calibrate → photometry → SEDPoint → render. |
+| **Notebook** | `pytest --nbmake docs/notebooks/` | Worked examples execute top-to-bottom. |
+| **Image regression** *(optional)* | `tests/baseline/*.png` via `pytest-mpl` | Render output stable across refactors. |
+
+## Required for every PR
+
+1. **A new public function** ⇒ a unit test exercising it with at least one
+   hand-computed expected value.
+2. **A new physics formula** ⇒ a regression test reproducing a textbook
+   value to four significant figures, *and* a citation of the textbook in
+   the test docstring.
+3. **A bug fix** ⇒ a failing test first, then the fix.
+4. **A new dataset / survey** ⇒ a fixture file in `tests/data/` plus a
+   calibration test.
+
+## What a good unit test looks like
+
+```python
+def test_eddington_luminosity_solar():
+    """Eddington luminosity for 1 M_sun reproduces textbook value.
+
+    Reference
+    ---------
+    Frank, King & Raine 2002, "Accretion Power in Astrophysics", 3rd ed.,
+    Eq. (1.5): L_Edd = 1.26e38 erg/s for M = 1 M_sun.
+    """
+    L = eddington_luminosity(1.0)
+    assert L.unit == u.erg / u.s
+    assert L.value == pytest.approx(1.26e38, rel=1e-3)
+```
+
+## What a good physics-regression test looks like
+
+```python
+@pytest.mark.parametrize(
+    "soft, hard, expected_hr",
+    [
+        (100, 100, 0.0),
+        (0, 100, 1.0),
+        (100, 0, -1.0),
+        (50, 150, 0.5),
+    ],
+)
+def test_hardness_ratio_known_values(soft, hard, expected_hr):
+    assert hardness_ratio(soft, hard) == pytest.approx(expected_hr, abs=1e-9)
+```
+
+## Fixtures
+
+Synthetic FITS in `tests/conftest.py::tiny_fits` covers most needs:
+- 64×64 image HDU with valid WCS.
+- 1000-row events table HDU.
+- GTI extension with one 1 ks interval.
+- Standard mission keywords.
+
+Use it whenever you can; only create new fixtures for genuinely new shapes
+of input.
+
+## Coverage targets
+
+| Path | Target |
+|---|---|
+| `blackhole/` overall | ≥80% |
+| `blackhole/photometry.py` | ≥90% |
+| `blackhole/calibration.py` | ≥90% |
+| `blackhole/lrd.py` | ≥90% |
+| `app.py` | not measured |
+| `scripts/` | not measured |
+
+Coverage is enforced in CI via `--cov-fail-under=70` overall (rising over
+time toward 80%).
+
+## Things to avoid in tests
+
+- **Network calls.** Tests run offline. Use fixtures, not `astroquery`.
+- **Time-dependent assertions** (`datetime.now()`).
+- **Random seeds without setting them.** `np.random.default_rng(seed=42)`.
+- **Asserting on private attributes** (`_foo`). Test the public surface.
+- **Sharing state across tests.** Fixtures are function-scoped by default.
+- **`assert x == y` with floats.** Use `pytest.approx` with explicit
+  tolerance.
+- **Catching exceptions to assert messages contain a substring** without
+  also asserting the exception type. Use `pytest.raises(ExcType, match=...)`.
+
+## When tests will not exist
+
+For non-physics code (UI helpers, logging configuration), unit tests are
+not mandatory; instead the integration tests must exercise the path.

@@ -1,0 +1,120 @@
+---
+description: Streamlit and matplotlib conventions for the UI layer.
+globs: app.py,blackhole/_style.py,blackhole/wcs_plot.py,blackhole/sed.py,blackhole/lightcurves.py,blackhole/spectra.py,blackhole/_rgb.py
+alwaysApply: false
+---
+
+# UI patterns
+
+`app.py` is presentation. The rest of `blackhole/` is logic. The line
+between them is load-bearing.
+
+## What `app.py` may do
+
+- Read configuration from the sidebar.
+- Call into `blackhole.*` functions.
+- Render `Figure`, `DataFrame`, `dict` to Streamlit components.
+- Display Provenance.
+
+## What `app.py` must not do
+
+- Compute fluxes, fits, hardness ratios, Eddington ratios, redshifts.
+- Read FITS files directly (use `bhio.load_*`).
+- Mutate `astropy.units.Quantity` or `np.ndarray` objects.
+- Define hardcoded physical constants.
+
+A grep-test gates this:
+
+```bash
+# Either of these in app.py is a failure:
+rg -n 'import numpy as np' app.py
+rg -n '\\* u\\.' app.py | rg -v 'wavelength|energy|frequency'
+```
+
+(Note: SED *input* assembly that takes catalog values and wraps them as
+`Quantity` is allowed at the catalog → SEDPoint boundary, since values come
+from `blackhole.catalog`, not from `app.py` itself.)
+
+## Caching
+
+```python
+@st.cache_data(show_spinner=False)
+def cached_inspect(path_str: str):
+    return bhio.inspect(path_str)
+
+@st.cache_resource
+def cached_events(path_str: str):
+    return bhio.load_events(path_str)
+```
+
+Cache invalidates on `path_str` change. Do not cache `Figure` objects —
+they're cheap to redraw and can hold large state.
+
+## Matplotlib dark-mode style
+
+Use the shared helper, never repeat the boilerplate:
+
+```python
+from blackhole._style import apply_dark
+fig, ax = plt.subplots(...)
+# ... plot ...
+apply_dark(ax)   # sets spines, ticks, labels, grid for our dark theme
+```
+
+If you find yourself writing:
+
+```python
+for spine in ax.spines.values():
+    spine.set_color("white")
+ax.tick_params(colors="white")
+ax.set_facecolor("#0e1117")
+```
+
+you missed `apply_dark`. There should be exactly one place in the repo
+that contains this.
+
+## Figure provenance
+
+Every renderer attaches metadata:
+
+```python
+fig = wp.render_image(...)
+fig.metadata = {"provenance": prov}   # provenance.Provenance instance
+```
+
+The Provenance expander in `app.py` reads `fig.metadata` and renders it
+as a table.
+
+## Tabs and expanders
+
+- Tabs (`st.tabs`) for major orthogonal views (Inspect, Image, SED, ...).
+- Expanders (`st.expander`) for context, references, and Provenance.
+- Sidebar (`st.sidebar`) for global controls (file picker, stretch, cmap).
+- One target → one tab block. Avoid deeply nested tabs.
+
+## User-visible numbers
+
+Every number rendered to the user must:
+
+1. Have units (if dimensional).
+2. Have a 1-σ error or a clear "—" with explanation.
+3. Have a provenance entry (file SHA + function + version).
+4. Be labeled with what it actually is. ("Γ" only when it's a calibrated
+   photon index; otherwise call it `α_channel`.)
+
+## Layout
+
+- `st.set_page_config(layout="wide")`.
+- Top: target metadata banner from `blackhole.catalog`.
+- Middle: tabs.
+- Bottom of each tab: Provenance expander.
+- Sidebar: global controls and dataset manifest.
+
+## Things to avoid
+
+- Embedding HTML/CSS for visual style beyond the existing global block.
+  If you need new style, add it to the global block in `app.py`.
+- `st.write` of complex objects without a clear caption.
+- Streamlit components that depend on session state that other tabs read.
+  Pass values through the function arguments instead.
+- `st.experimental_*` functions — they break across Streamlit versions.

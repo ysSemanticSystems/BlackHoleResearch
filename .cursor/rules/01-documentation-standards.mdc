@@ -1,0 +1,135 @@
+---
+description: Documentation standards for every Python module and public function.
+globs: blackhole/**/*.py,scripts/**/*.py
+alwaysApply: false
+---
+
+# Documentation standards
+
+Every module and every public function in this repo carries documentation in
+the **fixed shape** below. CI and review enforce it.
+
+## Module docstring (required)
+
+```python
+"""
+blackhole.<module> — one-line summary.
+
+WHY THIS MODULE EXISTS
+======================
+2–6 lines on motivation. What concrete trap or capability does this
+module address?
+
+KEY PHYSICS / CONVENTIONS
+=========================
+3–10 lines stating the canonical quantities, equations, or formats this
+module implements. Define every symbol you use.
+
+PITFALLS
+========
+- Bullet list of items from docs/PITFALLS.md that apply here.
+
+REFERENCES
+==========
+- Primary source 1 (Author Year, journal, vol, page, DOI/arXiv).
+- Primary source 2 ...
+"""
+```
+
+## Public-function docstring (required)
+
+```python
+def fn(x: u.Quantity, *, opt: bool = False) -> u.Quantity:
+    """One-line imperative summary, ending with a period.
+
+    Longer prose paragraph (optional) when the function implements a
+    nontrivial formula or has subtle behavior.
+
+    Parameters
+    ----------
+    x : u.Quantity
+        What it is, including expected units.
+    opt : bool, default False
+        What it controls.
+
+    Returns
+    -------
+    u.Quantity
+        What it is, including resulting units.
+
+    Raises
+    ------
+    UncalibratedDataError
+        If conversion is impossible for the input.
+
+    References
+    ----------
+    Author Year, journal, vol, page — Eq. (N) (or DOI/arXiv).
+    """
+```
+
+## ✅ Good example
+
+```python
+def eddington_luminosity(mass_msun: float) -> u.Quantity:
+    """Compute the Eddington luminosity for ionized hydrogen.
+
+    L_Edd = 4 π G M m_p c / σ_T ≈ 1.26e38 (M / M_sun) erg/s
+
+    Parameters
+    ----------
+    mass_msun : float
+        Black hole mass in solar masses.
+
+    Returns
+    -------
+    u.Quantity
+        Luminosity in erg/s.
+
+    References
+    ----------
+    Eddington 1926, "The Internal Constitution of the Stars," Ch. V.
+    """
+```
+
+## ❌ Bad examples
+
+```python
+# Bad: no References block on a published formula.
+def eddington_luminosity(m):
+    """Eddington luminosity."""
+    ...
+
+# Bad: untyped, no units in docstring, no primary source.
+def hr(s, h):
+    """Hardness ratio."""
+    return (h - s) / (h + s)
+```
+
+## When formulas cite a paper
+
+Every quantitative formula, threshold, or default value must point to a
+primary source — not a textbook restatement. If the source is a textbook,
+include the page number. If from arXiv only, use the arXiv ID.
+
+## When you would skip the References block
+
+You may skip it for pure-IO functions (`load_image`), pure-rendering
+functions (`render_image`), and utility wrappers. Anything that returns or
+asserts a *physical number* requires a citation.
+
+## Comments inside function bodies
+
+Comments explain **non-obvious intent, trade-offs, or constraints**.
+They do **not** restate what the code does.
+
+```python
+# GOOD
+# Copy because astropy memory-maps FITS data by default; the memmap is
+# invalidated when the `with fits.open(...)` block exits. See PITFALLS #9.
+array = hdu.data.copy()
+
+# BAD
+# Set array to a copy of hdu.data
+array = hdu.data.copy()
+```

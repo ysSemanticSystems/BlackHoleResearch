@@ -1,0 +1,45 @@
+---
+description: Repo-wide context for BlackHoleResearch. Always loaded.
+alwaysApply: true
+---
+
+# BlackHoleResearch — project context
+
+This is **scientific software** for multiwavelength black-hole astrophysics.
+The bar is higher than a typical app: numbers are honest, formulas are cited,
+plots are reproducible from on-screen metadata.
+
+## Required reading (in priority order)
+
+1. `AGENTS.md` — operational rules for all contributors.
+2. `PHASE2_PLAN.md` — milestone roadmap. Exit criteria are binary.
+3. `docs/PITFALLS.md` — normative failure-mode catalog.
+
+## Prime directives (memorize)
+
+1. **Honesty over completeness** — never invent a value. Return `None` /
+   `upper_limit=True` / `UncalibratedDataError` instead of a fake number.
+2. **Cite every formula** — primary-source reference in every physics
+   function docstring.
+3. **astropy.units end-to-end** — bare floats for physical quantities are
+   a bug.
+4. **Tests precede expansion** — no PR merges without a regression test.
+5. **Streamlit is presentation only** — physics and I/O live in
+   `blackhole/`; `app.py` may only render.
+6. **Single source of truth** — sources in `blackhole/catalog.py`,
+   calibrations in `blackhole/calibration.py`, constants from
+   `astropy.constants`.
+7. **Provenance with every plot** — file SHA, calibration version,
+   function chain.
+
+## Quick-reference map
+
+| Need | Path |
+|---|---|
+| Add a source | `blackhole/catalog.py` |
+| Add a survey calibrator | `blackhole/calibration.py` |
+| New physics formula | `blackhole/physics/<topic>.py` |
+| FITS I/O | `blackhole/io.py` |
+| UI rendering | `app.py` (presentation only) |
+| Architectural decision | `docs/adr/ADR-NNNN-title.md` |
+| New failure mode | append to `docs/PITFALLS.md` |
