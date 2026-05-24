@@ -24,12 +24,15 @@ import astropy.units as u
 import matplotlib.pyplot as plt
 import streamlit as st
 
+from blackhole import calibration as calmod
 from blackhole import catalog as cat
 from blackhole import io as bhio
 from blackhole import lightcurves as lc
+from blackhole import photometry as phot
 from blackhole import sed as sedmod
 from blackhole import spectra as sp
 from blackhole import wcs_plot as wp
+from docs import literature_seds as litseds
 
 # ---------------------------------------------------------------------------
 # Page setup
@@ -562,15 +565,6 @@ with tab_sed:
         "component, the IR dust torus, the optical/UV disk thermal emission, "
         "and the X-ray corona power law on a single plot."
     )
-    with st.expander("Note on photometry source"):
-        st.markdown(
-            "Values are illustrative literature photometry, drawn from "
-            "published catalog measurements (NED, AllWISE, 2MASS XSC, and "
-            "the references shown in the data table). Aperture photometry "
-            "extracted directly from the local FITS cutouts is planned for "
-            "Phase 2."
-        )
-
     target_names = [s.name for s in cat.CATALOG]
     auto_source = detect_source_from_filename(selected_name)
     default_idx = (
@@ -588,96 +582,153 @@ with tab_sed:
             else "Filename doesn't match a catalogued target. Choose manually."
         ),
     )
+    target_source = cat.by_name(target_choice)
 
-    # Hardcoded illustrative SED values per target. In a Phase 2 build,
-    # these would be computed from the actual FITS cutouts via aperture
-    # photometry. For now they're from published catalogs.
-    #
-    # Sources for each:
-    #   NGC 1068: NED photometry compilation (https://ned.ipac.caltech.edu/)
-    #   M87:      NED photometry; X-ray from Wilson & Yang 2002
-    #   Cyg X-1:  Mid-IR from Mirabel et al. 1996; X-ray from Wilms+2006
-    SEDS = {
-        "NGC 1068": [
-            # (label, wavelength_um, flux_density_jy, band, source)
-            ("VLA 1.4 GHz",       214000.0,  2.0,    "radio",  "NED"),
-            ("VLA 5 GHz",         60000.0,   1.4,    "radio",  "NED"),
-            ("Spitzer 24 µm",     24.0,      20.0,   "ir",     "Bendo+2012"),
-            ("WISE W4 22 µm",     22.0,      18.0,   "ir",     "AllWISE"),
-            ("WISE W3 12 µm",     12.0,      18.0,   "ir",     "AllWISE"),
-            ("Spitzer 8 µm",      8.0,       7.0,    "ir",     "Bendo+2012"),
-            ("WISE W2 4.6 µm",    4.6,       2.6,    "ir",     "AllWISE"),
-            ("WISE W1 3.4 µm",    3.4,       1.6,    "ir",     "AllWISE"),
-            ("2MASS K 2.2 µm",    2.2,       1.0,    "ir",     "2MASS XSC"),
-            ("2MASS J 1.25 µm",   1.25,      0.55,   "ir",     "2MASS XSC"),
-            ("DSS R 0.66 µm",     0.66,      0.07,   "opt",    "DSS"),
-            ("Swift UVOT UVW1",   0.26,      0.005,  "uv",     "Swift UVOT"),
-            # X-ray points expressed in keV (handled differently below)
-        ],
-        "M87": [
-            ("VLA 1.4 GHz core",  214000.0,  4.0,    "radio",  "NED"),
-            ("VLA 5 GHz core",    60000.0,   2.9,    "radio",  "NED"),
-            ("Spitzer 24 µm",     24.0,      0.4,    "ir",     "Shi+2007"),
-            ("WISE W3 12 µm",     12.0,      0.5,    "ir",     "AllWISE"),
-            ("WISE W1 3.4 µm",    3.4,       0.5,    "ir",     "AllWISE"),
-            ("2MASS K 2.2 µm",    2.2,       1.5,    "ir",     "2MASS"),
-            ("DSS R 0.66 µm",     0.66,      0.6,    "opt",    "DSS"),
-        ],
-        "Cyg X-1": [
-            ("2MASS K 2.2 µm",    2.2,       0.8,    "ir",     "2MASS"),
-            ("2MASS J 1.25 µm",   1.25,      0.55,   "ir",     "2MASS"),
-            ("DSS R 0.66 µm",     0.66,      0.4,    "opt",    "DSS"),
-        ],
-    }
+    sed_controls_col1, sed_controls_col2 = st.columns([2, 1])
+    with sed_controls_col1:
+        use_local = st.checkbox(
+            "Aperture-photometer the local FITS cutouts for this target",
+            value=True,
+            help=(
+                "Runs `blackhole.photometry.aperture_photometry_on` against "
+                "the cutouts in `fits_data/` whose filename mentions this "
+                "target. Only files that calibrate (2MASS, IRIS, AKARI, "
+                "FIRST, RASS) contribute; DSS raises and is skipped."
+            ),
+        )
+        overlay_lit = st.checkbox(
+            "Overlay published literature values for this target",
+            value=True,
+            help="Faint markers from `docs/literature_seds.py` for comparison.",
+        )
+    with sed_controls_col2:
+        overlay_quasar = st.checkbox(
+            "Overlay Elvis+1994 mean quasar template",
+            value=False,
+            help="Schematic broadband AGN spectrum for visual context only.",
+        )
 
-    # X-ray points are in keV
-    XRAY = {
-        "NGC 1068":  [(2.0, 5e-13, "Chandra 2 keV", "Bauer+2015"),
-                      (10.0, 1e-12, "NuSTAR 10 keV", "Marinucci+2016"),
-                      (30.0, 5e-12, "NuSTAR 30 keV", "Marinucci+2016")],
-        "M87":       [(1.0, 5e-12, "Chandra 1 keV", "Wilson&Yang 2002"),
-                      (5.0, 2e-12, "Chandra 5 keV", "Wilson&Yang 2002")],
-        "Cyg X-1":   [(2.0, 3e-9,  "RXTE 2 keV",     "Wilms+2006"),
-                      (10.0, 2e-9, "RXTE 10 keV",    "Wilms+2006"),
-                      (50.0, 5e-10, "INTEGRAL 50 keV", "Wilms+2006")],
-    }
-
-    import astropy.units as u
     sed_obj = sedmod.SED(target_name=target_choice)
-    for label, wl_um, fnu_jy, band, src in SEDS[target_choice]:
-        sed_obj.add(sedmod.SEDPoint(
-            label=label, wavelength=wl_um * u.micron,
-            flux_density=fnu_jy * u.Jy, band=band, source=src,
-        ))
-    # X-ray points: provided as νF_ν in erg/s/cm² directly
-    for E_keV, nfn, label, src in XRAY[target_choice]:
-        sed_obj.add(sedmod.SEDPoint(
-            label=label, energy=E_keV * u.keV,
-            nu_f_nu=nfn * (u.erg / u.s / u.cm**2),
-            band="xray", source=src,
-        ))
 
-    overlay = st.checkbox(
-        "Overlay Elvis+1994 mean quasar template (schematic)",
-        value=False,
-        help="Hand-tabulated normalization — for visual context only."
-    )
+    # ---------------- Local-cutout photometry (M2+M3 pipeline) -------------
+    measured_rows: list[dict[str, object]] = []
+    if use_local and target_source is not None:
+        for path in sorted(list_fits_files(DATA_DIR)):
+            ts = cat.by_filename(path.name)
+            if ts is None or ts.name != target_source.name:
+                continue
+            try:
+                img = bhio.load_image(path)
+            except Exception as exc:
+                measured_rows.append({"file": path.name, "status": f"load failed: {exc}"})
+                continue
+            try:
+                cal_img = calmod.calibrate(img)
+            except calmod.UncalibratedDataError as exc:
+                measured_rows.append({"file": path.name, "status": f"skipped (uncalibrated): {exc}"})
+                continue
+            radius = phot.aperture_for_band(cal_img.band)
+            try:
+                res = phot.aperture_photometry_on(
+                    cal_img,
+                    target_source.coord,
+                    aperture_radius=radius,
+                    annulus_inner=radius * 1.5,
+                    annulus_outer=radius * 2.5,
+                    label=f"{cal_img.survey}",
+                )
+            except Exception as exc:
+                measured_rows.append({"file": path.name, "status": f"photometry failed: {exc}"})
+                continue
 
-    fig = sedmod.render_sed(sed_obj, overplot_quasar_template=overlay)
-    st.pyplot(fig, use_container_width=True)
-
-    with st.expander("Data points and sources"):
-        import pandas as pd
-        rows = []
-        for p in sed_obj.points:
-            rows.append({
-                "Label": p.label, "Band": p.band, "Source": p.source,
+            # Wavelength tagging by survey identifier (so the SED renderer
+            # can place the point in frequency space). Pure-best-effort
+            # mapping; downstream Phase 2 will read this from a band registry.
+            wavelength_um = {
+                "2MASS-K":  2.159,
+                "IRIS_12":  12.0,
+                "IRIS_25":  25.0,
+                "IRIS_60":  60.0,
+                "IRIS_100": 100.0,
+                "AKARI":     90.0,
+                "VLA-FIRST": 214000.0,
+                "RASS-broad": None,   # X-ray: handled via energy
+            }.get(cal_img.survey)
+            point = res.to_sed_point()
+            if wavelength_um is not None:
+                point.wavelength = wavelength_um * u.micron
+            elif cal_img.survey == "RASS-broad":
+                point.energy = 1.0 * u.keV  # representative broad-band energy
+            sed_obj.add(point)
+            measured_rows.append({
+                "file": path.name,
+                "survey": cal_img.survey,
+                "flux": f"{res.flux:.3g}",
+                "err":  f"{res.flux_err:.3g}",
+                "upper_limit": res.upper_limit,
+                "aperture_arcsec": float(res.aperture_radius.value),
             })
-        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+
+    # ---------------- Literature overlay (visual comparison only) ----------
+    if overlay_lit:
+        lit_sed, lit_xray = litseds.literature_for(target_choice)
+        for label, wl_um, fnu_jy, band, src in lit_sed:
+            sed_obj.add(sedmod.SEDPoint(
+                label=f"[lit] {label}", wavelength=wl_um * u.micron,
+                flux_density=fnu_jy * u.Jy, band=band,
+                source=f"literature · {src}",
+            ))
+        for energy_keV, nfn, label, src in lit_xray:
+            sed_obj.add(sedmod.SEDPoint(
+                label=f"[lit] {label}", energy=energy_keV * u.keV,
+                nu_f_nu=nfn * (u.erg / u.s / u.cm**2),
+                band="xray", source=f"literature · {src}",
+            ))
+
+    if len(sed_obj.points) == 0:
+        st.info(
+            "No SED points to plot for this target. Enable the literature "
+            "overlay or add calibratable cutouts (2MASS, IRIS, AKARI, FIRST, "
+            "RASS) to `fits_data/` and re-run."
+        )
+    else:
+        fig = sedmod.render_sed(sed_obj, overplot_quasar_template=overlay_quasar)
+        st.pyplot(fig, use_container_width=True)
+
+    with st.expander("Local photometry diagnostics"):
+        if measured_rows:
+            import pandas as pd
+            st.dataframe(
+                pd.DataFrame(measured_rows),
+                use_container_width=True, hide_index=True,
+            )
+            st.caption(
+                "Local aperture photometry from `blackhole.photometry`. "
+                "Apertures size from `aperture_for_band(band)`; sky annulus "
+                "is 1.5x → 2.5x the aperture. Upper limits are the 3σ "
+                "background-noise threshold (see photutils docs)."
+            )
+        else:
+            st.caption("No local cutouts contributed (try enabling the option above).")
+
+    with st.expander("Literature points and references"):
+        import pandas as pd
+        lit_sed, lit_xray = litseds.literature_for(target_choice)
+        rows = (
+            [{"Label": lbl, "Band": band, "Source": src}
+             for (lbl, _w, _f, band, src) in lit_sed]
+            +
+            [{"Label": lbl, "Band": "xray", "Source": src}
+             for (_E, _nfn, lbl, src) in lit_xray]
+        )
+        if rows:
+            st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+        else:
+            st.caption("No literature points catalogued for this target.")
         st.caption(
-            "Values are literature photometry from the sources noted, not "
-            "extracted from the local FITS cutouts. Aperture photometry from "
-            "the cutouts is planned for Phase 2."
+            "Literature values are an opt-in overlay only. The data points "
+            "you see on the plot when 'Aperture-photometer the local FITS "
+            "cutouts' is enabled are computed locally."
         )
 
 # --------------------------- Light Curve tab ----------------------------------

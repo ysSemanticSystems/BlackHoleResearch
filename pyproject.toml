@@ -35,6 +35,7 @@ dependencies = [
     "astropy>=6.1",
     "astroquery>=0.4.7",
     "specutils>=1.15",
+    "photutils>=2.0",
     "regions>=0.9",
     "streamlit>=1.40",
     "plotly>=5.24",
