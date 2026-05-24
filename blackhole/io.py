@@ -202,6 +202,11 @@ class EventList:
       NuSTAR evt:          TIME, X, Y, PI (channels), DET_ID
 
     The mission and column-name lookup is handled by `bin_to_image`.
+
+    The optional ``gti`` field is the union of all Good Time Interval
+    extensions in the source file, with shape (N, 2) and columns
+    ``(start, stop)`` in the same time reference as ``times``. Light-curve
+    binning uses it to avoid rendering instrument gaps as zero counts.
     """
 
     times: np.ndarray         # seconds, mission reference frame
@@ -212,6 +217,49 @@ class EventList:
     header: fits.Header
     source_path: Path
     mission: str
+    gti: np.ndarray | None = None  # (N, 2) start/stop pairs in event-time
+
+
+def _read_gti(hdul: fits.HDUList) -> np.ndarray | None:
+    """Read and union all Good Time Interval extensions in `hdul`.
+
+    Recognizes extensions whose name is ``GTI``, ``STDGTI``, or starts
+    with ``GTI`` (per-CCD GTIs like ``GTI7``, ``GTI8`` on Chandra ACIS;
+    per-FPM GTIs on NuSTAR). Multiple extensions are *unioned* into a
+    single sorted, non-overlapping (start, stop) array.
+
+    Each candidate extension must have ``START`` and ``STOP`` columns
+    (OGIP convention).
+
+    Returns
+    -------
+    np.ndarray or None
+        Shape (N, 2) of seconds, or None if no GTI extension exists.
+    """
+    intervals: list[tuple[float, float]] = []
+    for h in hdul:
+        name = h.name.upper() if h.name else ""
+        if not isinstance(h, fits.BinTableHDU):
+            continue
+        if not (name == "GTI" or name == "STDGTI" or name.startswith("GTI")):
+            continue
+        cols_upper = {c.name.upper(): c.name for c in h.columns}
+        if "START" not in cols_upper or "STOP" not in cols_upper:
+            continue
+        starts = np.asarray(h.data[cols_upper["START"]]).astype(float)
+        stops = np.asarray(h.data[cols_upper["STOP"]]).astype(float)
+        intervals.extend(zip(starts, stops, strict=False))
+    if not intervals:
+        return None
+
+    intervals.sort()
+    merged: list[list[float]] = []
+    for s, e in intervals:
+        if merged and s <= merged[-1][1]:
+            merged[-1][1] = max(merged[-1][1], e)
+        else:
+            merged.append([s, e])
+    return np.array(merged, dtype=float)
 
 
 def load_events(path: str | Path) -> EventList:
@@ -266,9 +314,12 @@ def load_events(path: str | Path) -> EventList:
             energies = np.asarray(data[cols_upper["PI"]]).astype(float)
             energy_unit = "PI"
 
+        gti = _read_gti(hdul)
+
     return EventList(
         times=times, x=x, y=y, energies=energies, energy_unit=energy_unit,
         header=header, source_path=path, mission=mission or "UNKNOWN",
+        gti=gti,
     )
 
 

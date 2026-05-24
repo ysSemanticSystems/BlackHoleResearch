@@ -113,6 +113,53 @@ def tiny_events_fits(tmp_path: Path, rng: np.random.Generator) -> Path:
 
 
 @pytest.fixture
+def gapped_events_fits(tmp_path: Path, rng: np.random.Generator) -> Path:
+    """Events split across two GTIs with a 1 ks gap between them.
+
+    Layout
+    ------
+        GTI 1:     0      ->   1000 s
+        gap:    1000      ->   2000 s   (NO events here)
+        GTI 2:  2000      ->   3000 s
+
+    Used by M4 tests to confirm bin_events_to_lightcurve drops the
+    in-gap bin rather than rendering it as a zero-count bin.
+    """
+    n_events = 500
+    n_a = n_events // 2
+    n_b = n_events - n_a
+    times = np.concatenate([
+        np.sort(rng.uniform(0.0,    1000.0, size=n_a)),
+        np.sort(rng.uniform(2000.0, 3000.0, size=n_b)),
+    ])
+    x = rng.normal(loc=4096.0, scale=8.0, size=times.size).astype(np.float32)
+    y = rng.normal(loc=4096.0, scale=8.0, size=times.size).astype(np.float32)
+    energies = rng.uniform(500.0, 8000.0, size=times.size).astype(np.float32)
+
+    events_hdu = fits.BinTableHDU.from_columns([
+        fits.Column(name="TIME",   array=times,    format="D", unit="s"),
+        fits.Column(name="X",      array=x,        format="E"),
+        fits.Column(name="Y",      array=y,        format="E"),
+        fits.Column(name="ENERGY", array=energies, format="E", unit="eV"),
+    ], name="EVENTS")
+    events_hdu.header["TELESCOP"] = "CHANDRA"
+    events_hdu.header["INSTRUME"] = "ACIS"
+    events_hdu.header["TSTART"]   = 0.0
+    events_hdu.header["TSTOP"]    = 3000.0
+    events_hdu.header["EXPOSURE"] = 2000.0
+
+    gti_hdu = fits.BinTableHDU.from_columns([
+        fits.Column(name="START", array=np.array([0.0,    2000.0]), format="D", unit="s"),
+        fits.Column(name="STOP",  array=np.array([1000.0, 3000.0]), format="D", unit="s"),
+    ], name="GTI")
+
+    hdul = fits.HDUList([fits.PrimaryHDU(), events_hdu, gti_hdu])
+    path = tmp_path / "gapped_events.fits"
+    hdul.writeto(path, overwrite=True)
+    return path
+
+
+@pytest.fixture
 def tiny_pha_fits(tmp_path: Path, rng: np.random.Generator) -> Path:
     """Build a 256-channel OGIP PHA-like SPECTRUM HDU with a power-law shape."""
     n_chan = 256
