@@ -511,19 +511,25 @@ with tab_xray:
 
 # --------------------------- Spectrum tab ----------------------------------
 with tab_spectrum:
-    st.subheader("1D X-ray spectrum")
+    st.subheader("1D X-ray spectrum (channel space)")
     st.caption(
-        "Plots an OGIP PHA spectrum and optionally fits a power law "
-        "N(E) ∝ E^(−Γ). Without RMF/ARF response files the fit is in "
-        "channel space — descriptive only, not calibrated."
+        "Plots an OGIP PHA spectrum and optionally fits a power law to "
+        "the channel-space distribution. Without RMF/ARF response files "
+        "this fit lives in PHA-channel space, not energy space — it is a "
+        "*descriptive slope*, not a calibrated photon index Γ."
     )
-    with st.expander("Photon-index interpretation"):
+    with st.expander("Why this is α_channel and not Γ"):
         st.markdown(
-            "- **Γ ≈ 1.7–2.1** → typical Type 1 (unobscured) AGN\n"
-            "- **Γ < 1.7** → hard, reflection-dominated or obscured\n"
-            "- **Γ > 2.5** → very soft; sometimes super-Eddington or tidal disruption event\n\n"
-            "Production-grade fits require XSPEC or Sherpa with the appropriate "
-            "response files."
+            "A photon index Γ is defined on the *photon spectrum in energy*: "
+            "N(E) ∝ E^(−Γ). Recovering it from PHA counts requires the "
+            "RMF (redistribution matrix) and ARF (effective area) for the "
+            "detector, since the recorded counts/channel are a forward-folded "
+            "convolution of the source spectrum through the response.\n\n"
+            "What we fit here is a *channel-space slope* α_channel — useful "
+            "for spotting hard vs. soft sources at a glance, but not "
+            "publishable as a photon index. For Γ, fit in Sherpa or XSPEC "
+            "with the RMF/ARF that ship alongside the PHA file. (M5b in "
+            "PHASE2_PLAN.md adds an optional Sherpa hook.)"
         )
 
     has_spectrum = any(h.name.upper() == "SPECTRUM" for h in hdus)
@@ -534,7 +540,13 @@ with tab_spectrum:
             "Try an X-ray spectrum file (often named `*_spec.pha` or `*.pi`)."
         )
     else:
-        do_fit = st.checkbox("Fit a power law", value=True)
+        do_fit = st.checkbox(
+            "Fit a channel-space power law", value=True,
+            help=(
+                "Fits N(channel) ∝ channel^(−α_channel). This is a "
+                "descriptive slope, not a calibrated photon index."
+            ),
+        )
         try:
             spec = sp.load_pha_spectrum(str(selected_path))
             fit_result = None
@@ -542,9 +554,9 @@ with tab_spectrum:
                 try:
                     g, ge, fc = sp.fit_power_law(spec)
                     fit_result = (g, ge, fc)
-                    from blackhole.physics.spectral_xray import classify_photon_index
                     st.success(
-                        f"**Γ = {g:.2f} ± {ge:.2f}** — *{classify_photon_index(g)}*"
+                        f"**α_channel = {g:.2f} ± {ge:.2f}**  "
+                        "(descriptive channel-space slope; not Γ)"
                     )
                 except Exception as fe:
                     st.warning(f"Fit failed: {fe}")

@@ -130,11 +130,26 @@ def fit_power_law(
     spectrum: Spectrum,
     channel_range: tuple[float, float] | None = None,
 ) -> tuple[float, float, np.ndarray]:
-    """Fit a power law to a channel range. Returns (gamma, gamma_err, fit_curve).
+    """Fit a channel-space power law. Returns (alpha_channel, err, fit_curve).
 
-    Uses scipy.optimize.curve_fit with weights from per-channel errors.
-    Returns the photon index Γ, its 1-sigma uncertainty, and the evaluated
-    fit curve over the input channel array.
+    The returned scalar is the descriptive *channel-space* slope α_channel
+    of N(channel) ∝ channel^(−α_channel), **not** a calibrated photon
+    index Γ. Recovering Γ from PHA counts requires the RMF and ARF for
+    the detector and a forward-folding fitter (XSPEC, Sherpa); see M5b
+    in PHASE2_PLAN.md.
+
+    Returns
+    -------
+    alpha_channel : float
+        Best-fit channel-space slope.
+    alpha_err : float
+        1-sigma uncertainty (sqrt(pcov[1,1]) from curve_fit).
+    fit_curve : np.ndarray
+        Power-law evaluation over the full channel array.
+
+    References
+    ----------
+    OGIP/92-007 — PHA file format; channel != energy in general.
     """
     ch = spectrum.channels
     co = spectrum.counts
@@ -178,13 +193,13 @@ def render_spectrum(
                 color="#00d4ff", alpha=0.7, label=f"{spectrum.instrument} data")
 
     if fit is not None:
-        gamma, gamma_err, fit_curve = fit
+        alpha, alpha_err, fit_curve = fit
         ax.plot(spectrum.channels[m], fit_curve[m], "-", color="#ff6b35", lw=2,
-                label=f"Power law: Γ = {gamma:.2f} ± {gamma_err:.2f}")
+                label=f"Power law: α_channel = {alpha:.2f} ± {alpha_err:.2f}")
 
     ax.set_xscale("log")
     ax.set_yscale("log")
-    ax.set_xlabel("Channel", color="white", fontsize=12)
+    ax.set_xlabel("Channel (not energy)", color="white", fontsize=12)
     ax.set_ylabel("Counts" if spectrum.exposure_s else "Rate", color="white", fontsize=12)
     ax.set_title(title or f"{spectrum.mission} {spectrum.instrument} spectrum",
                  color="white", fontsize=13, pad=12)

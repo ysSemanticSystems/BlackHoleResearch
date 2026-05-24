@@ -112,3 +112,57 @@ def test_render_spectrum_without_errors(tmp_path: Path) -> None:
     spec = sp.load_pha_spectrum(path)
     fig = sp.render_spectrum(spec, fit=None)
     assert fig is not None
+
+
+# ---------------------------------------------------------------------------
+# M5a — Spectrum tab honesty
+# ---------------------------------------------------------------------------
+
+
+def test_render_labels_axis_as_channel_not_energy(tiny_pha_fits: Path) -> None:
+    """The x-axis label clearly identifies channel space, not energy."""
+    import matplotlib
+    matplotlib.use("Agg")
+    spec = sp.load_pha_spectrum(tiny_pha_fits)
+    fig = sp.render_spectrum(spec, fit=None)
+    label = fig.axes[0].get_xlabel()
+    assert "Channel" in label
+    assert "not energy" in label.lower()
+
+
+def test_render_fit_label_says_alpha_channel(tiny_pha_fits: Path) -> None:
+    """When a fit is plotted, its legend label is `α_channel`, not `Γ`."""
+    import matplotlib
+    matplotlib.use("Agg")
+    spec = sp.load_pha_spectrum(tiny_pha_fits)
+    fit = sp.fit_power_law(spec)
+    fig = sp.render_spectrum(spec, fit=fit)
+    legend = fig.axes[0].get_legend()
+    assert legend is not None
+    legend_text = " ".join(t.get_text() for t in legend.get_texts())
+    assert "α_channel" in legend_text
+    # The legend must not claim this is a photon index.
+    assert "Γ" not in legend_text
+
+
+def test_no_photon_index_classifier_called_from_channel_space(
+    tiny_pha_fits: Path,
+) -> None:
+    """The channel-space code path must not call classify_photon_index.
+
+    classify_photon_index maps Γ ranges to AGN populations. Calling it on
+    an uncalibrated channel-space slope is a category error — that's the
+    bug M5a fixes.
+    """
+    from unittest.mock import patch
+    with patch(
+        "blackhole.physics.spectral_xray.classify_photon_index",
+        side_effect=AssertionError(
+            "classify_photon_index must not be called from the channel-space "
+            "fit path"
+        ),
+    ):
+        spec = sp.load_pha_spectrum(tiny_pha_fits)
+        fit = sp.fit_power_law(spec)
+        fig = sp.render_spectrum(spec, fit=fit)
+        assert fig is not None
