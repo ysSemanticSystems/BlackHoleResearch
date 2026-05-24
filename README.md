@@ -27,19 +27,19 @@
 
 ---
 
-## Why you'll want this
+## What it does
 
-If any of these sentences describe your week, this repository is for you:
+A short list of the specific tasks this app is built around:
 
-- "I downloaded a Chandra event file and `imshow` returned garbage." → [Event-list-to-image binning](#-x-ray-event-list-to-image-binning).
-- "I need a JWST NIRSpec viewer that shows redshifted line markers." → [Phase 2 NIRSpec tab (planned)](PHASE2_PLAN.md#m8--jwst-ingestion).
-- "I'm building a multi-band SED for an AGN and the units are a nightmare." → [Unit-safe SED builder](#-multi-band-sed-builder-radio--mid-ir--optical--x-ray).
-- "I keep forgetting whether WISE colors are AB or Vega." → [PITFALLS #6](docs/PITFALLS.md).
-- "I want to reproduce the L_X / L_UV plot for a Little Red Dot." → [Phase 2 diagnostics (planned)](PHASE2_PLAN.md#m9--lrd-diagnostics).
-- "My light curve has zero-count gaps that aren't real." → [GTI handling (planned M4)](PHASE2_PLAN.md#m4--light-curve-correctness-gti).
-- "I want a teaching tool that shows the asinh stretch, the Donley wedge, and the Eddington luminosity, with citations." → That's the whole project.
+- Load a Chandra / XMM / NuSTAR event file and turn it into an image with the right energy cut. → [X-ray event list-to-image binning](#-x-ray-event-list-to-image-binning).
+- View a JWST NIRSpec spectrum with redshifted line markers. → [Phase 2 NIRSpec tab (planned)](PHASE2_PLAN.md#m8--jwst-ingestion).
+- Build a multi-band Spectral Energy Distribution for an AGN with consistent units across radio → X-ray. → [Unit-safe SED builder](#-multi-band-sed-builder-radio--mid-ir--optical--x-ray).
+- Look up whether WISE colors are AB or Vega, and how the Stern / Donley cuts are defined. → [PITFALLS #6](docs/PITFALLS.md), [`physics/infrared.py`](blackhole/physics/infrared.py).
+- Reproduce the L_X / L_UV plot for a Little Red Dot. → [Phase 2 diagnostics (planned)](PHASE2_PLAN.md#m9--lrd-diagnostics).
+- Investigate zero-count gaps in an X-ray light curve. → [GTI handling (planned M4)](PHASE2_PLAN.md#m4--light-curve-correctness-gti).
+- See the asinh stretch, the Donley wedge, the Eddington luminosity, the Lomb–Scargle periodogram, and the Vaughan+2003 F_var in one place with primary-source citations. → That's the whole app.
 
-> **Search keywords (for the next astronomer who Googles their problem):**
+> **Search keywords (for discoverability):**
 > Chandra event file Python viewer, JWST NIRSpec FITS Streamlit, multiwavelength SED AGN, OGIP PHA spectrum power law, WCS overlay matplotlib origin lower, asinh stretch astronomical image, ROSAT All-Sky Survey cutout, VLA FIRST 1.4 GHz, WISE Stern Donley AGN color cut, Eddington luminosity calculator, Shakura–Sunyaev disk temperature, fractional rms variability Vaughan 2003, Lomb–Scargle X-ray light curve, Little Red Dots JWST, L_X/L_UV Lusso Risaliti 2016, Reines & Volonteri 2015, hardness ratio AGN, Compton-thick Seyfert 2 NGC 1068, M87 jet, Cyg X-1 black hole binary, astroquery SkyView HEASARC, photutils aperture photometry, specutils Spectrum1D, FITS pitfalls.
 
 ---
@@ -105,9 +105,9 @@ Self-contained reference implementations:
 
 Every formula has its primary source in the docstring; enforcement of citation discipline is in [`.cursor/rules/01-documentation-standards.mdc`](.cursor/rules/01-documentation-standards.mdc).
 
-### 📚 A FITS pitfalls catalog you'll wish you had as a grad student
+### 📚 A documented catalog of common FITS failure modes
 
-[`docs/PITFALLS.md`](docs/PITFALLS.md) is a 14-entry reference for the recurring failure modes:
+[`docs/PITFALLS.md`](docs/PITFALLS.md) is a 14-entry reference covering the recurring issues that come up when working with archival FITS files:
 
 1. Event-list-as-image confusion
 2. Linear stretch destroying dynamic range
@@ -124,7 +124,7 @@ Every formula has its primary source in the docstring; enforcement of citation d
 13. Mission time systems (Chandra/XMM TT vs NuSTAR UTC)
 14. Modified Julian Date conventions (the half-day offset)
 
-Use it as a code review checklist when you're working with FITS files generally — not just with this app.
+Each entry has a symptom, a cause, and a concrete code defense with citations.
 
 ---
 
@@ -154,7 +154,7 @@ Phase 2 (see [`PHASE2_PLAN.md`](PHASE2_PLAN.md)) adds:
   - **Broad Hα → M_BH** via Reines & Volonteri 2015 calibration;
   - **Donley+2012 WISE wedge** with LRDs overlaid as the outliers they are.
 
-If you are working on LRDs and want a reproducible, citation-trail-complete pipeline that emits calibrated values with uncertainties, this is the project.
+The Phase 2 goal is a reproducible, citation-tracked LRD pipeline that emits calibrated values with uncertainties, and that anyone can run on a laptop.
 
 ---
 
@@ -256,12 +256,12 @@ result = Irsa.query_region("NGC 1068", catalog="allwise_p3as_psd",
 
 ## 🤝 Contributing
 
-This repo enforces **scientific honesty as a CI gate**, not as a politeness.
+Conventions are defined in [`AGENTS.md`](AGENTS.md) and enforced in CI.
 
 Before opening a PR:
 
-1. Read [`AGENTS.md`](AGENTS.md) — the 8 prime directives.
-2. Pick a milestone from [`PHASE2_PLAN.md`](PHASE2_PLAN.md) and tick its **binary exit criteria** in the PR description.
+1. Read [`AGENTS.md`](AGENTS.md) for the project's prime directives and PR checklist.
+2. Pick a milestone from [`PHASE2_PLAN.md`](PHASE2_PLAN.md) and tick its binary exit criteria in the PR description.
 3. Run the local pre-merge checks (`ruff check`, `mypy --strict blackhole/`, `pytest -q`).
 
 The persistent AI/contributor rules live in [`.cursor/rules/`](.cursor/rules/):
@@ -351,6 +351,6 @@ All NASA-archive data redistributed here is U.S. public domain.
 
 **Hosted on GitHub: <https://github.com/ysSemanticSystems/BlackHoleResearch>**
 
-If this helped you — a ⭐ helps the next astronomer find it.
+If this is useful to you, a ⭐ helps others find it.
 
 </div>
