@@ -43,7 +43,6 @@ classical AGN entirely.
 from __future__ import annotations
 
 import astropy.constants as const
-import astropy.units as u
 import numpy as np
 
 
@@ -60,7 +59,8 @@ def blackbody_nu_fnu(
     c = const.c.cgs.value
     with np.errstate(over="ignore"):
         Bnu = (2 * h * nu**3 / c**2) / np.expm1(h * nu / (k * temperature_k))
-    return nu * Bnu
+    result: np.ndarray | float = nu * Bnu
+    return result
 
 
 def stern_2012_agn(w1_w2_vega: float | np.ndarray) -> bool | np.ndarray:

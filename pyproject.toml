@@ -1,0 +1,93 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "blackholeresearch"
+version = "0.1.0"
+description = "Multiwavelength FITS explorer for black hole astrophysics. NGC 1068, M87, Cyg X-1; Phase 2 adds JWST Little Red Dots."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [{ name = "ysSemanticSystems" }]
+keywords = [
+    "astrophysics", "astronomy", "black-holes", "agn",
+    "spectral-energy-distribution", "fits", "ogip", "wcs",
+    "jwst", "chandra", "little-red-dots", "multiwavelength",
+    "astropy", "astroquery", "streamlit",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Astronomy",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Scientific/Engineering :: Visualization",
+]
+dependencies = [
+    "numpy>=1.26,<3",
+    "scipy>=1.11",
+    "matplotlib>=3.8",
+    "astropy>=6.1",
+    "astroquery>=0.4.7",
+    "specutils>=1.15",
+    "regions>=0.9",
+    "streamlit>=1.40",
+    "plotly>=5.24",
+    "pandas>=2.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "pytest-cov>=5",
+    "ruff>=0.5",
+    "mypy>=1.10",
+]
+
+[project.urls]
+Homepage = "https://github.com/ysSemanticSystems/BlackHoleResearch"
+Repository = "https://github.com/ysSemanticSystems/BlackHoleResearch"
+Issues = "https://github.com/ysSemanticSystems/BlackHoleResearch/issues"
+Roadmap = "https://github.com/ysSemanticSystems/BlackHoleResearch/blob/main/PHASE2_PLAN.md"
+
+[project.scripts]
+blackhole-download = "scripts.download_data:main"
+
+[tool.setuptools]
+packages = ["blackhole", "blackhole.physics"]
+include-package-data = false
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+    "--tb=short",
+]
+filterwarnings = [
+    # astropy currently emits these against numpy 2.x in some legacy paths; not actionable here.
+    "ignore::DeprecationWarning:astropy.*",
+    "ignore::PendingDeprecationWarning",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["blackhole"]
+omit = ["blackhole/__init__.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]

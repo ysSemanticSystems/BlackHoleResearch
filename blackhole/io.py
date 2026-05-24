@@ -38,15 +38,13 @@ REFERENCES
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator
 
 import numpy as np
 from astropy.io import fits
-from astropy.io.fits.hdu.hdulist import HDUList
 from astropy.wcs import WCS
-
 
 # ---------------------------------------------------------------------------
 # Inspection
@@ -58,9 +56,9 @@ class HDUSummary:
 
     index: int
     name: str
-    hdu_type: str        # 'PrimaryHDU' | 'ImageHDU' | 'BinTableHDU' | etc.
-    shape: tuple | None  # pixel dims for images; (nrows,) for tables
-    columns: list[str] | None  # column names for tables, else None
+    hdu_type: str                    # 'PrimaryHDU' | 'ImageHDU' | 'BinTableHDU' | etc.
+    shape: tuple[int, ...] | None    # pixel dims for images; (nrows,) for tables
+    columns: list[str] | None        # column names for tables, else None
     telescope: str | None
     instrument: str | None
     exposure_s: float | None
@@ -107,7 +105,7 @@ def inspect(path: str | Path) -> list[HDUSummary]:
     return out
 
 
-def header_dict(path: str | Path, hdu_index: int = 0) -> dict:
+def header_dict(path: str | Path, hdu_index: int = 0) -> dict[str, object]:
     """Return one HDU's header as an ordinary dict.
 
     The native astropy Header object is dict-like but carries comment cards
@@ -118,7 +116,7 @@ def header_dict(path: str | Path, hdu_index: int = 0) -> dict:
         h = hdul[hdu_index].header
         # Strip card-level metadata. astropy gives us comments as a parallel
         # mapping; we discard them here on purpose.
-        return {k: h[k] for k in h.keys() if k and k not in ("COMMENT", "HISTORY", "")}
+        return {k: h[k] for k in h if k and k not in ("COMMENT", "HISTORY", "")}
 
 
 # ---------------------------------------------------------------------------
@@ -172,10 +170,14 @@ def load_image(path: str | Path, hdu_index: int | None = None) -> ImageData:
     # Build WCS. Some FITS files lack WCS keywords entirely (small cutouts
     # from old missions); we return None rather than raising so the caller
     # can decide whether to plot in pixel coordinates.
+    #
+    # PITFALL (#3 in docs/PITFALLS.md): astropy.wcs.WCS(header) returns a
+    # valid 2-axis object even when the header has no CTYPE/CRVAL keywords,
+    # silently using the identity mapping. We must verify the WCS actually
+    # encodes a celestial projection via has_celestial.
     try:
         wcs = WCS(header)
-        # WCS construction succeeds with empty WCS; verify it actually maps.
-        if wcs.naxis < 2:
+        if wcs.naxis < 2 or not wcs.has_celestial:
             wcs = None
     except Exception:
         wcs = None

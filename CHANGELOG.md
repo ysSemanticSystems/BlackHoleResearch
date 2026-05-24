@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — M0 regression net & repo hardening
+- `pyproject.toml` — PEP 621 project metadata, dependency pins, pytest and
+  coverage config; installable via `pip install -e ".[dev]"`.
+- `ruff.toml` — lint configuration (`E,W,F,I,B,UP,SIM,RUF,N`) with explicit
+  carve-outs for physics symbol naming and Greek/Unicode scientific text.
+- `mypy.ini` — strict type-checking config; library-side third-party stubs
+  declared per-module.
+- `tests/conftest.py` — `tiny_image_fits`, `tiny_events_fits`, `tiny_pha_fits`
+  fixtures: synthetic, deterministic FITS files for offline test runs.
+- Seed tests: `tests/test_io.py`, `tests/test_sed.py`, `tests/test_spectra.py`,
+  `tests/test_lightcurves.py`, `tests/test_wcs_plot.py`, and four physics
+  test modules under `tests/test_physics/`. **100 tests total, 92% line
+  coverage** (gate at 70%).
+- `.github/workflows/ci.yml` — matrix CI: pytest on Linux+macOS × Python
+  3.11+3.12, plus dedicated ruff and mypy jobs; coverage uploaded as an
+  artifact on the Linux/py3.12 leg.
+
+### Fixed
+- `blackhole/io.load_image`: previously accepted a header with no celestial
+  CTYPE keywords as a valid WCS (astropy silently returns an identity 2-axis
+  WCS). Now requires `WCS.has_celestial` before returning a non-None WCS;
+  matches the rule in `docs/PITFALLS.md` #3.
+
 ### Added — Discoverability & metadata
 - `LICENSE` — explicit MIT license file (README previously claimed MIT
   without one).

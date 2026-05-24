@@ -1,0 +1,41 @@
+target-version = "py311"
+line-length = 100
+
+exclude = [
+    ".venv",
+    "fits_data",
+    "build",
+    "dist",
+    "docs/notebooks",
+]
+
+[lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # bugbear
+    "UP",  # pyupgrade
+    "SIM", # simplify
+    "RUF", # ruff-specific
+    "N",   # pep8-naming
+]
+ignore = [
+    # Allow non-snake-case for physics-symbol identifiers (e.g. F_var, L_Edd).
+    "N802", "N803", "N806",
+    # Line length is enforced by formatter; lint complaints here are noisy.
+    "E501",
+    # We use Greek/Unicode physics symbols (Γ, μ, ν, °, σ, λ, etc.) deliberately.
+    # The "ambiguous unicode" warnings flag these as look-alikes; the substitutes
+    # ruff suggests (Latin "y" for Greek "γ" etc.) are wrong for scientific text.
+    "RUF001", "RUF002", "RUF003",
+]
+
+[lint.per-file-ignores]
+"tests/**/*.py" = ["N", "B011"]
+"scripts/**/*.py" = ["N"]
+"app.py" = ["E402"]
+
+[lint.isort]
+known-first-party = ["blackhole"]

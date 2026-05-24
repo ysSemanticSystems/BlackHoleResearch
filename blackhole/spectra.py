@@ -189,7 +189,7 @@ def render_spectrum(
     ax.set_title(title or f"{spectrum.mission} {spectrum.instrument} spectrum",
                  color="white", fontsize=13, pad=12)
 
-    leg = ax.legend(facecolor="#0e1117", edgecolor="white", labelcolor="white")
+    ax.legend(facecolor="#0e1117", edgecolor="white", labelcolor="white")
     ax.set_facecolor("#0e1117")
     for spine in ax.spines.values():
         spine.set_color("white")

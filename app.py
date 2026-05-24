@@ -22,7 +22,6 @@ from blackhole import sed as sedmod
 from blackhole import spectra as sp
 from blackhole import wcs_plot as wp
 
-
 # ---------------------------------------------------------------------------
 # Page setup
 # ---------------------------------------------------------------------------
@@ -508,8 +507,7 @@ with tab_lightcurve:
             fig_lc = lc.render_lightcurve(lc_obj)
             st.pyplot(fig_lc, use_container_width=True)
 
-            from blackhole.physics.variability import (fractional_rms,
-                                                       fractional_rms_error)
+            from blackhole.physics.variability import fractional_rms, fractional_rms_error
             fvar = fractional_rms(lc_obj.rates, lc_obj.errors)
             fvar_err = fractional_rms_error(lc_obj.rates, lc_obj.errors)
             if fvar == fvar:  # not NaN

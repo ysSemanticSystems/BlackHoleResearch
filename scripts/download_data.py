@@ -43,7 +43,7 @@ import hashlib
 import json
 import sys
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 # ----------------------------------------------------------------------------
@@ -173,9 +173,8 @@ TARGETS = [
 def fetch_cutout(target: Target, cutout: Cutout, dest_dir: Path,
                  force: bool = False) -> tuple[bool, dict]:
     """Download a single cutout. Returns (success, manifest_entry)."""
-    from astroquery.skyview import SkyView
     import astropy.units as u
-    from astropy.io import fits
+    from astroquery.skyview import SkyView
 
     dest = dest_dir / cutout.filename
     if dest.exists() and not force:
@@ -233,7 +232,7 @@ def _entry(target: Target, cutout: Cutout, dest: Path,
         "size_mb": round(size_mb, 3),
         "sha256": h.hexdigest(),
         "source": "NASA SkyView (https://skyview.gsfc.nasa.gov/)",
-        "fetched_at": datetime.now(timezone.utc).isoformat(),
+        "fetched_at": datetime.now(UTC).isoformat(),
         "skipped_on_this_run": skipped,
     }
 
@@ -281,7 +280,7 @@ def main() -> int:
 
     manifest_path = fits_dir / "MANIFEST.json"
     payload = {
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "n_files": len(manifest),
         "total_size_mb": round(sum(m["size_mb"] for m in manifest), 2),
         "files": manifest,

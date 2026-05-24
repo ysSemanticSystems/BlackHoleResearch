@@ -49,6 +49,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 import astropy.units as u
+import matplotlib.axes
 import matplotlib.pyplot as plt
 import numpy as np
 from astropy import constants as const
@@ -83,7 +84,7 @@ class SED:
     points: list[SEDPoint] = field(default_factory=list)
     redshift: float | None = None    # for cosmological sources
 
-    def add(self, point: SEDPoint) -> "SED":
+    def add(self, point: SEDPoint) -> SED:
         self.points.append(point)
         return self
 
@@ -183,20 +184,28 @@ def render_sed(
         full_title += f"  (z = {sed.redshift:.3f})"
     ax.set_title(full_title, color="white", fontsize=14, pad=14)
 
-    # Secondary axis: wavelength
-    def freq_to_wave_um(nu_hz):
+    # Secondary axis: wavelength. Matplotlib calls these with array-like
+    # and we return numpy arrays. The stub's Callable signature is too
+    # narrow for our np.asarray-coerced inputs, so type checks are
+    # suppressed locally.
+    def freq_to_wave_um(nu_hz: np.ndarray) -> np.ndarray:
         with np.errstate(divide="ignore"):
-            return (const.c.value / np.asarray(nu_hz)) * 1e6
-    def wave_um_to_freq(lam_um):
+            return np.asarray((const.c.value / np.asarray(nu_hz)) * 1e6)
+
+    def wave_um_to_freq(lam_um: np.ndarray) -> np.ndarray:
         with np.errstate(divide="ignore"):
-            return const.c.value / (np.asarray(lam_um) * 1e-6)
-    secax = ax.secondary_xaxis("top", functions=(freq_to_wave_um, wave_um_to_freq))
+            return np.asarray(const.c.value / (np.asarray(lam_um) * 1e-6))
+
+    secax = ax.secondary_xaxis(
+        "top",
+        functions=(freq_to_wave_um, wave_um_to_freq),  # type: ignore[arg-type]
+    )
     secax.set_xlabel("Wavelength (µm)", color="white", fontsize=11)
     secax.tick_params(colors="white")
 
     if show_legend:
-        leg = ax.legend(facecolor="#0e1117", edgecolor="white",
-                        labelcolor="white", loc="best")
+        ax.legend(facecolor="#0e1117", edgecolor="white",
+                  labelcolor="white", loc="best")
 
     ax.set_facecolor("#0e1117")
     for spine in ax.spines.values():
@@ -207,7 +216,7 @@ def render_sed(
     return fig
 
 
-def _overplot_elvis_template(ax) -> None:
+def _overplot_elvis_template(ax: matplotlib.axes.Axes) -> None:
     """Schematic Elvis et al. 1994 mean RL-quasar νF_ν template (normalized).
 
     Hand-tabulated landmarks (log νFν vs log ν, arbitrary normalization).

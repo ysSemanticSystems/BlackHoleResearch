@@ -41,14 +41,17 @@ from typing import Literal
 import matplotlib.pyplot as plt
 import numpy as np
 from astropy.visualization import (
-    AsinhStretch, ImageNormalize, LinearStretch, LogStretch,
-    PercentileInterval, SqrtStretch, ZScaleInterval,
+    AsinhStretch,
+    ImageNormalize,
+    LinearStretch,
+    LogStretch,
+    PercentileInterval,
+    SqrtStretch,
+    ZScaleInterval,
 )
-from astropy.wcs import WCS
 from matplotlib.figure import Figure
 
 from .io import ImageData
-
 
 StretchName = Literal["linear", "sqrt", "log", "asinh", "zscale"]
 
@@ -129,7 +132,8 @@ def render_image(
         cbar.set_label("Counts" if image.array.dtype.kind in "ui" else "Flux (a.u.)",
                        color="white")
         cbar.ax.yaxis.set_tick_params(color="white")
-        cbar.outline.set_edgecolor("white")
+        if cbar.outline is not None:
+            cbar.outline.set_edgecolor("white")  # type: ignore[operator]
         for label in cbar.ax.get_yticklabels():
             label.set_color("white")
 
@@ -177,7 +181,8 @@ def render_event_image(
     cbar = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
     cbar.set_label("Photon counts per pixel", color="white")
     cbar.ax.yaxis.set_tick_params(color="white")
-    cbar.outline.set_edgecolor("white")
+    if cbar.outline is not None:
+        cbar.outline.set_edgecolor("white")  # type: ignore[operator]
     for label in cbar.ax.get_yticklabels():
         label.set_color("white")
 
