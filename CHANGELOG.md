@@ -7,6 +7,95 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — M2 calibration registry
+- `blackhole/calibration.py` — frozen `CalibratedImage` dataclass,
+  `UncalibratedDataError`, `CALIBRATION_VERSION = "1.0.0"`,
+  header-first `detect_survey` dispatch, and `calibrate(image)`.
+- Per-survey calibrators: 2MASS-K (Cohen+2003 F_nu_0=666.7 Jy),
+  IRIS_12/25/60/100 (MJy/sr → Jy/pixel via solid angle), AKARI
+  (Doi+2015), VLA-FIRST (Jy/beam → Jy/pixel via BMAJ/BMIN beam area,
+  Becker+1995), RASS (counts/EXPTIME * ECF=1.08e-11 from Snowden+1995),
+  and DSS which raises `UncalibratedDataError`.
+- `tests/test_calibration.py` — 18 tests, per-survey 2-pixel synthetic
+  FITS matched to hand-computed Quantity within 1e-4.
+- `docs/calibration_table.md` — per-survey conversion table, references,
+  trap notes, and calibration-version bump policy.
+
+### Added — M3 aperture photometry pipeline
+- `blackhole/photometry.py` — `PhotometryResult` frozen dataclass and
+  `aperture_photometry_on(cal, coord, ...)`. WCS-aware sky-aperture
+  placement, sigma-clipped MAD sky stats on the annulus, 3-sigma
+  upper-limit rule.
+- `aperture_for_band(band)` — sensible defaults (radio 60", submm 120",
+  IR 20", opt/UV 10", X-ray 30").
+- `tests/test_photometry.py` — 14 tests: 2D Gaussian recovery within 2%
+  through the 2MASS-K calibration, upper-limit detection, Jy and
+  erg/s/cm² routing in `to_sed_point`, WCS-less fallback.
+- `docs/literature_seds.py` — literature SED and X-ray reference values
+  moved out of `app.py` and packaged with full bibcodes.
+- **app.py** SED tab — local cutouts photometred via the new pipeline
+  (opt-in via "Aperture-photometer the local FITS cutouts"); literature
+  values are an opt-in overlay tagged `[lit]`. Local-photometry
+  diagnostics expander surfaces per-file flux, error, aperture, and
+  skip reasons (DSS, etc).
+- `pyproject.toml` — `photutils>=2.0` added to runtime dependencies.
+
+### Added — M4 GTI-aware light curves
+- `blackhole/io.py` — `EventList.gti` field (N×2 start/stop seconds);
+  `_read_gti(hdul)` reads GTI, STDGTI, and per-CCD/per-FPM `GTI*`
+  extensions and unions overlapping intervals.
+- `blackhole/lightcurves.py` — `LightCurve` carries `effective_exposure`,
+  `gti_applied`, `total_exposure_s`, `gti_total_s`.
+  `bin_events_to_lightcurve(..., apply_gti=True, min_exposure_fraction=0.5)`
+  spans the full GTI window, drops bins below the threshold, and
+  normalizes rate and Poisson error by effective exposure
+  (Vaughan+2003).
+- `render_lightcurve` title now reports GTI exposure and fraction.
+- `tests/conftest.py` — `gapped_events_fits` fixture (two 1 ks GTIs with
+  a 1 ks gap).
+- `tests/test_lightcurves.py` — 9 GTI tests: no fake zero bins in the
+  gap, ≈ 2000 s effective exposure, partial-bin rate normalization,
+  title metadata, and a non-GTI fallback path.
+
+### Changed — M5a spectrum tab honesty
+- `blackhole/spectra.py` — `fit_power_law` returns α_channel (descriptive
+  channel-space slope), not Γ. `render_spectrum` x-axis is
+  "Channel (not energy)"; legend label is `α_channel`.
+- **app.py** Spectrum tab — `classify_photon_index(g)` call *removed*
+  from the channel-space code path. Subheader retitled
+  "1D X-ray spectrum (channel space)". An expander explains why this
+  is α_channel and not Γ, with a pointer to M5b.
+- `tests/test_spectra.py` — 3 new tests pin the contract: the xlabel
+  must contain both "Channel" and "not energy"; the legend says
+  `α_channel`; `classify_photon_index` is patched to raise, and the
+  channel-space path still succeeds — proving it never touches the
+  classifier.
+
+### Added — M6 provenance & UI revamp
+- `blackhole/provenance.py` — frozen `Provenance` dataclass (fits_sha256,
+  fits_path, calibration_version, function_chain, library_version,
+  timestamp_utc, schema_version, extra), JSON round-trip,
+  `sha256_of_file` (returns "synthetic" for missing files),
+  `build_provenance`, `attach`/`get`/`extend_chain`, `save_figure`
+  (PNG + sidecar JSON), `load_sidecar`, `as_table_rows`,
+  `as_bibtex_note`.
+- `blackhole/_style.py` — `DARK_BG`, `DARK_FG`, `apply_dark(ax)`,
+  `apply_dark_figure(fig)`. Single source of truth for the dark-theme
+  spine / tick / grid / label styling.
+- Every `render_*` in `blackhole.*` now routes styling through
+  `apply_dark` and attaches a `Provenance` to its returned Figure.
+- **app.py** — `show_with_provenance(fig, key, copy_target)` helper used
+  by every tab: renders the figure, surfaces a Provenance table plus a
+  copy-citation snippet, and optionally writes a PNG + sidecar JSON to
+  `outputs/` when the sidebar toggle is on.
+- `tests/test_provenance.py` — 15 tests: schema round-trip, SHA-256
+  for real and missing files, every renderer attaches a Provenance
+  with the right function_chain, save_figure round-trip, end-to-end
+  calibrated photometry → SED render carries `calibration_version`,
+  and a grep test enforces that the inline
+  `for spine in ax.spines.values(): spine.set_color(...)` idiom lives
+  only inside `_style.apply_dark`.
+
 ### Added — M1 source catalog
 - `blackhole/catalog.py` — frozen `Source` dataclass + immutable
   `CATALOG` tuple for NGC 1068, M87, Cyg X-1. Every numeric field

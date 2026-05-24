@@ -43,6 +43,9 @@ from astropy.io import fits
 from matplotlib.figure import Figure
 from scipy.optimize import curve_fit
 
+from . import provenance as prov
+from ._style import apply_dark, apply_dark_figure
+
 
 @dataclass
 class Spectrum:
@@ -180,7 +183,8 @@ def render_spectrum(
     figsize: tuple[float, float] = (10, 6),
 ) -> Figure:
     """Render a spectrum in log-log channel space with optional power-law fit."""
-    fig, ax = plt.subplots(figsize=figsize, facecolor="#0e1117")
+    fig, ax = plt.subplots(figsize=figsize)
+    apply_dark_figure(fig)
     m = spectrum.counts > 0
 
     if spectrum.errors is not None:
@@ -199,17 +203,27 @@ def render_spectrum(
 
     ax.set_xscale("log")
     ax.set_yscale("log")
-    ax.set_xlabel("Channel (not energy)", color="white", fontsize=12)
-    ax.set_ylabel("Counts" if spectrum.exposure_s else "Rate", color="white", fontsize=12)
+    ax.set_xlabel("Channel (not energy)", fontsize=12)
+    ax.set_ylabel("Counts" if spectrum.exposure_s else "Rate", fontsize=12)
     ax.set_title(title or f"{spectrum.mission} {spectrum.instrument} spectrum",
-                 color="white", fontsize=13, pad=12)
-
+                 fontsize=13, pad=12)
     ax.legend(facecolor="#0e1117", edgecolor="white", labelcolor="white")
-    ax.set_facecolor("#0e1117")
-    for spine in ax.spines.values():
-        spine.set_color("white")
-    ax.tick_params(colors="white")
-    ax.grid(True, ls=":", alpha=0.3, color="white")
-
+    apply_dark(ax)
     fig.tight_layout()
+
+    fit_extra: dict[str, float | bool] = {"fit_applied": fit is not None}
+    if fit is not None:
+        alpha, alpha_err, _ = fit
+        fit_extra["alpha_channel"] = float(alpha)
+        fit_extra["alpha_channel_err"] = float(alpha_err)
+    prov.attach(fig, prov.build_provenance(
+        spectrum.source_path,
+        function_chain=(
+            "load_pha_spectrum",
+            *(("fit_power_law",) if fit is not None else ()),
+            "render_spectrum",
+        ),
+        extra={"mission": spectrum.mission, "instrument": spectrum.instrument,
+               **fit_extra},
+    ))
     return fig

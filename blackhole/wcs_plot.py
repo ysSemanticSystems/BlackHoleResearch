@@ -51,6 +51,8 @@ from astropy.visualization import (
 )
 from matplotlib.figure import Figure
 
+from . import provenance as prov
+from ._style import DARK_FG, apply_dark, apply_dark_figure
 from .io import ImageData
 
 StretchName = Literal["linear", "sqrt", "log", "asinh", "zscale"]
@@ -102,26 +104,25 @@ def render_image(
     PITFALL: If you forget origin='lower' your image is flipped vertically
     relative to every other tool (DS9, fv, aplpy, etc.) — sky is upside down.
     """
-    fig = plt.figure(figsize=figsize, facecolor="#0e1117")
+    fig = plt.figure(figsize=figsize)
+    apply_dark_figure(fig)
 
     if image.wcs is not None:
         ax = fig.add_subplot(111, projection=image.wcs)
-        # Axis labels via WCSAxes — the projection knows what RA/Dec are.
-        ax.set_xlabel("Right Ascension (J2000)", color="white")
-        ax.set_ylabel("Declination (J2000)", color="white")
+        ax.set_xlabel("Right Ascension (J2000)")
+        ax.set_ylabel("Declination (J2000)")
         if show_grid:
-            ax.grid(color="white", ls=":", alpha=0.4)
-        # Tick label color
+            ax.grid(color=DARK_FG, ls=":", alpha=0.4)
         for axis in ("ra", "dec"):
             try:
-                ax.coords[axis].set_ticklabel(color="white")
-                ax.coords[axis].set_axislabel(axis.upper(), color="white")
+                ax.coords[axis].set_ticklabel(color=DARK_FG)
+                ax.coords[axis].set_axislabel(axis.upper(), color=DARK_FG)
             except Exception:
                 pass
     else:
         ax = fig.add_subplot(111)
-        ax.set_xlabel("X (pixels)", color="white")
-        ax.set_ylabel("Y (pixels)", color="white")
+        ax.set_xlabel("X (pixels)")
+        ax.set_ylabel("Y (pixels)")
 
     norm = _build_norm(image.array, stretch)
     im = ax.imshow(image.array, origin="lower", cmap=cmap, norm=norm,
@@ -129,23 +130,27 @@ def render_image(
 
     if show_colorbar:
         cbar = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
-        cbar.set_label("Counts" if image.array.dtype.kind in "ui" else "Flux (a.u.)",
-                       color="white")
-        cbar.ax.yaxis.set_tick_params(color="white")
+        cbar.set_label(
+            "Counts" if image.array.dtype.kind in "ui" else "Flux (a.u.)",
+            color=DARK_FG,
+        )
+        cbar.ax.yaxis.set_tick_params(color=DARK_FG)
         if cbar.outline is not None:
-            cbar.outline.set_edgecolor("white")  # type: ignore[operator]
+            cbar.outline.set_edgecolor(DARK_FG)  # type: ignore[operator]
         for label in cbar.ax.get_yticklabels():
-            label.set_color("white")
+            label.set_color(DARK_FG)
 
     if title:
-        ax.set_title(title, color="white", fontsize=13, pad=12)
+        ax.set_title(title, fontsize=13, pad=12)
 
-    # Dark theme to match Streamlit dark mode
-    ax.set_facecolor("#0e1117")
-    for spine in ax.spines.values():
-        spine.set_color("white")
-
+    apply_dark(ax)
     fig.tight_layout()
+
+    prov.attach(fig, prov.build_provenance(
+        image.source_path,
+        function_chain=("load_image", "render_image"),
+        extra={"stretch": stretch, "cmap": cmap},
+    ))
     return fig
 
 
@@ -165,29 +170,35 @@ def render_event_image(
     can in principle be constructed from event-file headers, but for v1
     we plot in those native units with a clear "X-ray sky pixels" label.
     """
-    fig, ax = plt.subplots(figsize=figsize, facecolor="#0e1117")
+    fig, ax = plt.subplots(figsize=figsize)
+    apply_dark_figure(fig)
     norm = _build_norm(binned_image, stretch)
     im = ax.imshow(binned_image, origin="lower", cmap=cmap, norm=norm,
                    extent=extent, interpolation="nearest")
-    ax.set_xlabel("Sky X (detector pixels)", color="white")
-    ax.set_ylabel("Sky Y (detector pixels)", color="white")
+    ax.set_xlabel("Sky X (detector pixels)")
+    ax.set_ylabel("Sky Y (detector pixels)")
     if title:
-        ax.set_title(title, color="white", fontsize=13, pad=12)
+        ax.set_title(title, fontsize=13, pad=12)
     if energy_band_label:
         ax.text(0.02, 0.98, energy_band_label, transform=ax.transAxes,
-                color="white", fontsize=11, va="top",
-                bbox=dict(facecolor="black", alpha=0.5, edgecolor="white", lw=0.5))
+                color=DARK_FG, fontsize=11, va="top",
+                bbox=dict(facecolor="black", alpha=0.5, edgecolor=DARK_FG, lw=0.5))
 
     cbar = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
-    cbar.set_label("Photon counts per pixel", color="white")
-    cbar.ax.yaxis.set_tick_params(color="white")
+    cbar.set_label("Photon counts per pixel", color=DARK_FG)
+    cbar.ax.yaxis.set_tick_params(color=DARK_FG)
     if cbar.outline is not None:
-        cbar.outline.set_edgecolor("white")  # type: ignore[operator]
+        cbar.outline.set_edgecolor(DARK_FG)  # type: ignore[operator]
     for label in cbar.ax.get_yticklabels():
-        label.set_color("white")
+        label.set_color(DARK_FG)
 
-    ax.set_facecolor("#0e1117")
-    for spine in ax.spines.values():
-        spine.set_color("white")
+    apply_dark(ax)
     fig.tight_layout()
+
+    prov.attach(fig, prov.build_provenance(
+        None,
+        function_chain=("load_events", "bin_to_image", "render_event_image"),
+        extra={"stretch": stretch, "cmap": cmap,
+               "energy_band": energy_band_label or "all"},
+    ))
     return fig

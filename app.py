@@ -29,6 +29,7 @@ from blackhole import catalog as cat
 from blackhole import io as bhio
 from blackhole import lightcurves as lc
 from blackhole import photometry as phot
+from blackhole import provenance as prov
 from blackhole import sed as sedmod
 from blackhole import spectra as sp
 from blackhole import wcs_plot as wp
@@ -134,6 +135,18 @@ with st.sidebar:
         "- [Pitfalls catalog](https://github.com/ysSemanticSystems/BlackHoleResearch/blob/main/docs/PITFALLS.md)\n"
     )
 
+    st.markdown("---")
+    save_outputs = st.checkbox(
+        "Save figure + sidecar JSON to outputs/",
+        value=False,
+        help=(
+            "When checked, every rendered figure is written as PNG plus a "
+            "sidecar JSON describing the FITS SHA256, calibration version, "
+            "function chain, and timestamp that produced it."
+        ),
+    )
+    st.caption("Provenance is always shown in-page even when this is off.")
+
 
 # ---------------------------------------------------------------------------
 # Helpers (defined before the page flow that calls them)
@@ -160,6 +173,41 @@ def detect_source_from_filename(name: str) -> cat.Source | None:
 @st.cache_data(show_spinner=False)
 def cached_inspect(path_str: str):
     return bhio.inspect(path_str)
+
+
+OUTPUTS_DIR = Path(__file__).resolve().parent / "outputs"
+
+
+def show_with_provenance(fig, key: str, *, copy_target: str | None = None) -> None:
+    """Display a Figure plus its Provenance expander.
+
+    Every tab calls this in place of a bare `st.pyplot(fig, ...)`. The
+    expander tabulates the metadata `blackhole.provenance.attach`
+    deposited and offers a one-line "copy citation" string.
+
+    If the sidebar "Save figure + sidecar JSON" toggle is on, the figure
+    is written under `outputs/<key>.png` with a matching `.json`.
+    """
+    st.pyplot(fig, use_container_width=True)
+    provenance = prov.get(fig)
+    if provenance is None:
+        return
+    with st.expander("Provenance"):
+        rows = prov.as_table_rows(provenance)
+        import pandas as _pd
+        st.dataframe(
+            _pd.DataFrame(rows, columns=["field", "value"]),
+            hide_index=True, use_container_width=True,
+        )
+        st.code(prov.as_bibtex_note(provenance, target=copy_target),
+                language="text")
+    if save_outputs:
+        try:
+            png, js = prov.save_figure(fig, OUTPUTS_DIR / f"{key}.png")
+            st.caption(f"Saved → `{png.relative_to(OUTPUTS_DIR.parent)}`"
+                       f"  (sidecar: `{js.name}`)")
+        except Exception as exc:
+            st.caption(f"Save failed: {exc}")
 
 
 @st.cache_data(show_spinner=False)
@@ -431,7 +479,10 @@ with tab_image:
                 img, stretch=image_stretch, cmap=image_cmap,
                 title=f"{selected_name}  ·  {primary.telescope or ''} {primary.instrument or ''}".strip(),
             )
-            st.pyplot(fig, use_container_width=True)
+            show_with_provenance(
+                fig, key=f"image_{selected_name}",
+                copy_target=(active_source.name if active_source else None),
+            )
 
             with st.expander("Quick statistics"):
                 import numpy as np
@@ -505,7 +556,10 @@ with tab_xray:
                 energy_band_label=(f"{e_lo/1000:.1f}-{e_hi/1000:.1f} keV"
                                    if evlist.energy_unit == "eV" else None),
             )
-            st.pyplot(fig, use_container_width=True)
+            show_with_provenance(
+                fig, key=f"xray_{selected_name}",
+                copy_target=(active_source.name if active_source else None),
+            )
         except Exception as e:
             st.error(f"Could not bin event image: {e}")
 
@@ -564,7 +618,10 @@ with tab_spectrum:
                 spec, fit=fit_result,
                 title=f"{selected_name}  ·  {spec.mission} {spec.instrument}",
             )
-            st.pyplot(fig, use_container_width=True)
+            show_with_provenance(
+                fig, key=f"spectrum_{selected_name}",
+                copy_target=(active_source.name if active_source else None),
+            )
         except Exception as e:
             st.error(f"Could not render spectrum: {e}")
 
@@ -705,7 +762,10 @@ with tab_sed:
         )
     else:
         fig = sedmod.render_sed(sed_obj, overplot_quasar_template=overlay_quasar)
-        st.pyplot(fig, use_container_width=True)
+        show_with_provenance(
+            fig, key=f"sed_{target_choice.replace(' ', '_')}",
+            copy_target=target_choice,
+        )
 
     with st.expander("Local photometry diagnostics"):
         if measured_rows:
@@ -762,7 +822,10 @@ with tab_lightcurve:
             evlist = bhio.load_events(str(selected_path))
             lc_obj = lc.bin_events_to_lightcurve(evlist, bin_size_s=bin_s)
             fig_lc = lc.render_lightcurve(lc_obj)
-            st.pyplot(fig_lc, use_container_width=True)
+            show_with_provenance(
+                fig_lc, key=f"lc_{selected_name}",
+                copy_target=(active_source.name if active_source else None),
+            )
 
             from blackhole.physics.variability import fractional_rms, fractional_rms_error
             fvar = fractional_rms(lc_obj.rates, lc_obj.errors)
@@ -778,7 +841,10 @@ with tab_lightcurve:
             st.subheader("Lomb-Scargle periodogram")
             freqs, power = lc.lomb_scargle_periodogram(lc_obj)
             fig_p = lc.render_periodogram(freqs, power)
-            st.pyplot(fig_p, use_container_width=True)
+            show_with_provenance(
+                fig_p, key=f"periodogram_{selected_name}",
+                copy_target=(active_source.name if active_source else None),
+            )
         except Exception as e:
             st.error(f"Light-curve computation failed: {e}")
 

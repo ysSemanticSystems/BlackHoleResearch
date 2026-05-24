@@ -36,6 +36,8 @@ import numpy as np
 from astropy.timeseries import LombScargle
 from matplotlib.figure import Figure
 
+from . import provenance as prov
+from ._style import apply_dark, apply_dark_figure
 from .io import EventList
 
 
@@ -203,16 +205,24 @@ def render_lightcurve(
     figsize: tuple[float, float] = (11, 5),
 ) -> Figure:
     """Render a light curve with error bars."""
-    fig, ax = plt.subplots(figsize=figsize, facecolor="#0e1117")
+    fig, ax = plt.subplots(figsize=figsize)
+    apply_dark_figure(fig)
     if lc.times.size == 0:
         ax.text(0.5, 0.5, "No events to plot", ha="center", va="center",
                 color="white", transform=ax.transAxes, fontsize=14)
+        apply_dark(ax)
+        prov.attach(fig, prov.build_provenance(
+            None,
+            function_chain=("load_events", "bin_events_to_lightcurve",
+                            "render_lightcurve"),
+            extra={"empty": True},
+        ))
         return fig
     ax.errorbar(lc.times / 1000.0, lc.rates, yerr=lc.errors,
                 fmt="o", ms=2, lw=0.5, color="#00f5d4", ecolor="#118ab2",
                 alpha=0.7)
-    ax.set_xlabel("Time since observation start (ks)", color="white", fontsize=12)
-    ax.set_ylabel("Count rate (counts s$^{-1}$)", color="white", fontsize=12)
+    ax.set_xlabel("Time since observation start (ks)", fontsize=12)
+    ax.set_ylabel("Count rate (counts s$^{-1}$)", fontsize=12)
     band_str = ""
     if lc.energy_range_ev is not None:
         band_str = f"  {lc.energy_range_ev[0]/1000:.1f}-{lc.energy_range_ev[1]/1000:.1f} keV"
@@ -221,13 +231,21 @@ def render_lightcurve(
         frac = lc.total_exposure_s / lc.gti_total_s
         gti_str = f"  ·  GTI exposure {lc.total_exposure_s:.0f}s ({frac*100:.0f}% of GTI window)"
     ax.set_title(title or f"Light curve — {lc.source_label}{band_str}{gti_str}",
-                 color="white", fontsize=13, pad=12)
-    ax.set_facecolor("#0e1117")
-    for spine in ax.spines.values():
-        spine.set_color("white")
-    ax.tick_params(colors="white")
-    ax.grid(True, ls=":", alpha=0.3, color="white")
+                 fontsize=13, pad=12)
+    apply_dark(ax)
     fig.tight_layout()
+
+    prov.attach(fig, prov.build_provenance(
+        None,
+        function_chain=("load_events", "bin_events_to_lightcurve",
+                        "render_lightcurve"),
+        extra={"bin_size_s": lc.bin_size_s,
+               "gti_applied": lc.gti_applied,
+               "total_exposure_s": lc.total_exposure_s,
+               "energy_range_ev": (
+                   list(lc.energy_range_ev) if lc.energy_range_ev else None
+               )},
+    ))
     return fig
 
 
@@ -257,23 +275,34 @@ def render_periodogram(
     figsize: tuple[float, float] = (11, 5),
 ) -> Figure:
     """Render a Lomb-Scargle periodogram on log-log axes."""
-    fig, ax = plt.subplots(figsize=figsize, facecolor="#0e1117")
+    fig, ax = plt.subplots(figsize=figsize)
+    apply_dark_figure(fig)
     if freqs.size == 0:
         ax.text(0.5, 0.5, "Insufficient data for periodogram",
                 ha="center", va="center", color="white",
                 transform=ax.transAxes, fontsize=14)
+        apply_dark(ax)
+        prov.attach(fig, prov.build_provenance(
+            None,
+            function_chain=("lomb_scargle_periodogram", "render_periodogram"),
+            extra={"empty": True},
+        ))
         return fig
     ax.plot(freqs, power, color="#ff6b35", lw=1.0, alpha=0.9)
     ax.set_xscale("log")
     ax.set_yscale("log")
-    ax.set_xlabel("Frequency (Hz)", color="white", fontsize=12)
-    ax.set_ylabel("Lomb-Scargle power", color="white", fontsize=12)
-    ax.set_title(title or "Lomb-Scargle periodogram",
-                 color="white", fontsize=13, pad=12)
-    ax.set_facecolor("#0e1117")
-    for spine in ax.spines.values():
-        spine.set_color("white")
-    ax.tick_params(colors="white")
+    ax.set_xlabel("Frequency (Hz)", fontsize=12)
+    ax.set_ylabel("Lomb-Scargle power", fontsize=12)
+    ax.set_title(title or "Lomb-Scargle periodogram", fontsize=13, pad=12)
+    apply_dark(ax)
     ax.grid(True, ls=":", alpha=0.3, color="white", which="both")
     fig.tight_layout()
+
+    prov.attach(fig, prov.build_provenance(
+        None,
+        function_chain=("lomb_scargle_periodogram", "render_periodogram"),
+        extra={"n_freq": int(freqs.size),
+               "min_freq_hz": float(freqs.min()),
+               "max_freq_hz": float(freqs.max())},
+    ))
     return fig

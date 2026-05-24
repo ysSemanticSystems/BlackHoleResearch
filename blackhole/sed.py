@@ -55,6 +55,9 @@ import numpy as np
 from astropy import constants as const
 from matplotlib.figure import Figure
 
+from . import provenance as prov
+from ._style import apply_dark, apply_dark_figure
+
 
 @dataclass
 class SEDPoint:
@@ -140,12 +143,19 @@ def render_sed(
     radio-loud quasar SED for visual comparison. (Hand-tabulated template
     values; for publication overlay a proper template from VizieR.)
     """
-    fig, ax = plt.subplots(figsize=figsize, facecolor="#0e1117")
+    fig, ax = plt.subplots(figsize=figsize)
+    apply_dark_figure(fig)
 
     if not sed.points:
         ax.text(0.5, 0.5, "No SED points loaded",
                 ha="center", va="center", color="white",
                 transform=ax.transAxes, fontsize=14)
+        apply_dark(ax)
+        prov.attach(fig, prov.build_provenance(
+            None,
+            function_chain=("SED.add", "render_sed"),
+            extra={"empty": True, "target": sed.target_name},
+        ))
         return fig
 
     # Group by band so the legend stays tidy.
@@ -176,13 +186,13 @@ def render_sed(
 
     ax.set_xscale("log")
     ax.set_yscale("log")
-    ax.set_xlabel("Frequency ν (Hz)", color="white", fontsize=12)
-    ax.set_ylabel(r"$\nu F_\nu$ (erg s$^{-1}$ cm$^{-2}$)", color="white", fontsize=12)
+    ax.set_xlabel("Frequency ν (Hz)", fontsize=12)
+    ax.set_ylabel(r"$\nu F_\nu$ (erg s$^{-1}$ cm$^{-2}$)", fontsize=12)
 
     full_title = title or f"{sed.target_name} — Spectral Energy Distribution"
     if sed.redshift is not None:
         full_title += f"  (z = {sed.redshift:.3f})"
-    ax.set_title(full_title, color="white", fontsize=14, pad=14)
+    ax.set_title(full_title, fontsize=14, pad=14)
 
     # Secondary axis: wavelength. Matplotlib calls these with array-like
     # and we return numpy arrays. The stub's Callable signature is too
@@ -207,12 +217,18 @@ def render_sed(
         ax.legend(facecolor="#0e1117", edgecolor="white",
                   labelcolor="white", loc="best")
 
-    ax.set_facecolor("#0e1117")
-    for spine in ax.spines.values():
-        spine.set_color("white")
-    ax.tick_params(colors="white")
-    ax.grid(True, ls=":", alpha=0.3, color="white")
+    apply_dark(ax)
     fig.tight_layout()
+
+    prov.attach(fig, prov.build_provenance(
+        None,
+        function_chain=("SED.add", "render_sed"),
+        extra={"target": sed.target_name,
+               "n_points": len(sed.points),
+               "bands": sorted(by_band.keys()),
+               "redshift": sed.redshift,
+               "elvis_overlay": overplot_quasar_template},
+    ))
     return fig
 
 

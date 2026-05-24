@@ -414,7 +414,26 @@ Tully+2013 AJ 146 86; Bird+2010 A&A 524 A71; Frank, King & Raine 2002.
 
 ---
 
-### M2 — Calibration registry
+### M2 — Calibration registry ✅ landed
+
+**Status.** Delivered on `phase2-foundation`.
+
+**Delivered scope.**
+- `blackhole/calibration.py`: frozen `CalibratedImage` dataclass,
+  `UncalibratedDataError`, `CALIBRATION_VERSION = "1.0.0"`,
+  `detect_survey(image)` header-first dispatch, and `calibrate(image)`.
+- Per-survey calibrators: 2MASS-K (MAGZP + F_nu_0(K)=666.7 Jy from
+  Cohen+2003), IRIS_12/25 (band="ir") and IRIS_60/100 (band="submm"),
+  AKARI (Doi+2015), VLA-FIRST (Jy/beam → Jy/pixel via BMAJ/BMIN beam
+  area, Becker+1995), RASS (counts/EXPTIME * ECF=1.08e-11 from
+  Snowden+1995), DSS raises `UncalibratedDataError`.
+- `tests/test_calibration.py` (18 tests): per-survey 2-pixel synthetic
+  FITS matched to hand-computed Quantity within 1e-4; missing-key
+  paths and DSS asserts.
+- `docs/calibration_table.md`: per-survey conversion table with
+  references, plus calibration-version policy.
+
+### M2 — Calibration registry (original spec, retained)
 
 **Goal.** Make every supported survey return calibrated, units-bearing data;
 make every unsupported survey raise loudly.
@@ -460,7 +479,33 @@ Snowden+1997 (RASS ECF).
 
 ---
 
-### M3 — Aperture photometry pipeline
+### M3 — Aperture photometry pipeline ✅ landed
+
+**Status.** Delivered on `phase2-foundation`.
+
+**Delivered scope.**
+- `blackhole/photometry.py`: frozen `PhotometryResult` plus
+  `aperture_photometry_on(cal, coord, aperture_radius, annulus_inner,
+  annulus_outer, method, label)`. Sky-aperture placement with celestial
+  WCS, pixel-centre fallback otherwise; sigma-clipped MAD sky stats
+  on the annulus; 3-sigma upper-limit rule reporting flux=3*flux_err.
+- `aperture_for_band(band)` defaults (radio 60", submm 120", IR 20",
+  opt/UV 10", X-ray 30").
+- `tests/test_photometry.py` (14 tests): 2D Gaussian recovery within 2%
+  through the 2MASS-K calibration, sub-3-sigma upper-limit detection,
+  Jy → flux_density and erg/s/cm² → nu_f_nu routing in `to_sed_point`,
+  pixel-centre fallback path.
+- `docs/literature_seds.py`: literature SED + X-ray reference values
+  moved out of `app.py` and packaged with full bibcodes; `literature_for`
+  helper returns (sed, xray) tuples per target.
+- `app.py` SED tab: a "Aperture-photometer the local FITS cutouts"
+  checkbox runs the pipeline against catalogued targets and the resulting
+  `SEDPoint`s drive the plot; an opt-in literature overlay is tagged
+  `[lit]`. "Local photometry diagnostics" expander surfaces flux, error,
+  aperture, and skip reasons (e.g. DSS).
+- `pyproject.toml`: `photutils>=2.0` added to runtime dependencies.
+
+### M3 — Aperture photometry pipeline (original spec, retained)
 
 **Goal.** The SED tab's numbers come from the local FITS files. The hardcoded
 literature dict shrinks to a comparison overlay, not the data source.
@@ -504,7 +549,29 @@ Jarrett+2003.
 
 ---
 
-### M4 — Light-curve correctness (GTI)
+### M4 — Light-curve correctness (GTI) ✅ landed
+
+**Status.** Delivered on `phase2-foundation`.
+
+**Delivered scope.**
+- `blackhole/io.py`: `EventList.gti` field (`np.ndarray | None`, shape
+  (N, 2)). New `_read_gti(hdul)` reads GTI, STDGTI, or per-CCD/per-FPM
+  `GTI*` extensions and unions overlapping intervals.
+- `blackhole/lightcurves.py`: `LightCurve` gains `effective_exposure`,
+  `gti_applied`, `total_exposure_s`, `gti_total_s`.
+- `bin_events_to_lightcurve(..., apply_gti=True, min_exposure_fraction=0.5)`:
+  span the full GTI window, drop bins below the fraction threshold,
+  normalize rate and Poisson error by effective exposure
+  (Vaughan+2003 exposure-weighted treatment).
+- `render_lightcurve` title reports GTI exposure and the fraction of the
+  GTI window covered.
+- `tests/conftest.py`: new `gapped_events_fits` fixture (two 1 ks GTIs
+  with a 1 ks gap).
+- `tests/test_lightcurves.py`: 9 GTI tests pin the exit criteria —
+  no fake zero bins in the gap, effective exposure ≈ 2000 s, partial-bin
+  rate normalization uses effective exposure, title carries GTI metadata.
+
+### M4 — Light-curve correctness (GTI) (original spec, retained)
 
 **Goal.** A light curve from a real X-ray event file has no fake zero-count
 gaps; F_var is computed only over valid exposure.
@@ -541,7 +608,28 @@ Vaughan+2003 (F_var with exposure weighting).
 
 ---
 
-### M5 — Spectrum tab honesty
+### M5 — Spectrum tab honesty ✅ M5a landed; M5b deferred
+
+**Status (M5a).** Delivered on `phase2-foundation`.
+
+**Delivered scope.**
+- `blackhole/spectra.py`: `fit_power_law` returns α_channel (descriptive
+  channel-space slope), not Γ. Docstring spells this out and references
+  OGIP/92-007 and M5b. `render_spectrum` x-axis is "Channel (not energy)"
+  and the legend label is `α_channel`.
+- `app.py` Spectrum tab: subheader retitled to "1D X-ray spectrum
+  (channel space)". The `classify_photon_index(g)` call is *removed*
+  from this code path. An expander "Why this is α_channel and not Γ"
+  explains the RMF/ARF requirement and points at M5b.
+- `tests/test_spectra.py` (+3 tests): xlabel says "Channel" and "not
+  energy"; legend says `α_channel`; `classify_photon_index` is
+  monkey-patched to raise — render still succeeds, proving the
+  channel-space path no longer reaches it.
+
+**Deferred (M5b).** The Sherpa-bridged calibrated fit path. Optional and
+non-blocking for Phase-2 LRD work; spec retained below.
+
+### M5 — Spectrum tab honesty (original spec, retained)
 
 **Goal.** Either remove the channel-space "power-law fit" or replace it with
 a calibrated forward-folded fit. No middle ground.
@@ -588,7 +676,39 @@ a calibrated forward-folded fit. No middle ground.
 
 ---
 
-### M6 — Provenance panel & UI revamp
+### M6 — Provenance panel & UI revamp ✅ landed
+
+**Status.** Delivered on `phase2-foundation`.
+
+**Delivered scope.**
+- `blackhole/provenance.py`: frozen `Provenance` dataclass
+  (fits_sha256, fits_path, calibration_version, function_chain,
+  library_version, timestamp_utc, schema_version, extra), JSON
+  round-trip via `to_dict`/`from_dict`, `sha256_of_file` (returns
+  "synthetic" for None/missing), `build_provenance(fits_path, *,
+  function_chain, extra)`, `attach(fig, provenance)`, `get(fig)`,
+  `extend_chain`, `save_figure(fig, path)` (PNG + sidecar JSON),
+  `load_sidecar`, `as_table_rows`, `as_bibtex_note`.
+- `blackhole/_style.py`: `DARK_BG`, `DARK_FG`, `apply_dark(ax)`,
+  `apply_dark_figure(fig)`. Single source of truth for spine colours,
+  tick colours, grid, label colours.
+- Every `render_*` in `blackhole.*` now (a) routes styling through
+  `apply_dark` and (b) attaches a `Provenance` to the returned Figure
+  via `fig.metadata["provenance"]`.
+- `app.py`: new `show_with_provenance(fig, key, copy_target)` helper
+  used by every tab. Renders the figure, surfaces a Provenance expander
+  table plus a one-line citation snippet, and optionally writes a PNG +
+  sidecar JSON to `outputs/` when the sidebar "Save figure + sidecar
+  JSON" toggle is on.
+- `tests/test_provenance.py` (15 tests): schema round-trip, SHA-256 for
+  real and missing files, every `render_*` attaches a Provenance with
+  the right function_chain, `save_figure` writes PNG + sidecar that
+  loads back to the same struct, end-to-end calibrated photometry →
+  SED render carries `calibration_version`, and a grep test enforces
+  that the `for spine in ax.spines.values(): spine.set_color(...)`
+  idiom lives in `_style.apply_dark` only.
+
+### M6 — Provenance panel & UI revamp (original spec, retained)
 
 **Goal.** Every plot in the UI is reproducible from on-screen metadata.
 
